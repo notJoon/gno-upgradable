@@ -26,6 +26,29 @@ type Impl interface {
 // implementation, its Store, and the live implementation. The realm creates
 // it from init, keeps it in an unexported variable, and forwards its
 // crossing functions to it.
+//
+// # Rolling back
+//
+// There is no Rollback. Going back to an older implementation is an
+// ordinary upgrade to it: the owner approves the old realm's path, the
+// delay runs, and the old realm registers again. So every implementation
+// should export a crossing function that calls Register, such as Activate,
+// rather than registering only from init, which never runs twice.
+//
+// The delay applies to rollbacks on purpose. Users accepted the old code
+// against older state, and some may have left because of it. An instant
+// rollback would let the owner put that code back before they can react.
+//
+// Rolling back changes code, not state:
+//   - The old implementation's Migrate runs with from set to the newer
+//     path, and must accept it. A Migrate that allows only specific
+//     predecessors blocks the rollback.
+//   - Tables the newer version added stay in the Store. The old version
+//     ignores them, and rolling forward again finds them intact.
+//   - Rows the newer version rewrote must still be readable by the old one.
+//     A version that changes a row's format in place makes rolling back
+//     unsafe, so prefer adding a new table.
+//   - Coins stay at the proxy's address throughout.
 type Proxy struct {
 	u     *Upgrader
 	store *Store
