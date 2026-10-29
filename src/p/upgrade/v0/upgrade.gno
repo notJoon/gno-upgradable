@@ -22,6 +22,8 @@ func New() *Upgrader {
 	return &Upgrader{}
 }
 
+// Approve records the current implementation's package path
+// and the pending approval of a proxy realm.
 func (u *Upgrader) Approve(pkgPath string) {
 	// pkgPath must look like `<domain>/r/<path>` and must not name a subrealm.
 	// Splitting into at most three parts keeps the rest of the whole path together.
