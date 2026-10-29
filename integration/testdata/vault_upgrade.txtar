@@ -1,0 +1,63 @@
+# Upgrade the vault from v1 to v2 on a real node, signing with gnokey.
+# test1 is the vault's Admin0. v2 is deployed later with addpkg, like a real upgrade.
+
+# A real chain cannot skip heights the way filetests do, so cut the delay to 2 blocks.
+patchpkg 'const UpgradeDelay = 17280' 'const UpgradeDelay = 2'
+# Packages src imports from $GNOROOT/examples. Their own deps load automatically.
+loadpkg gno.land/p/nt/bptree/v0
+loadpkg gno.land/p/nt/grc20/v0
+loadpkg gno.land/p/nt/ufmt/v0
+# src packages, named because loadpkg resolves the imports of a dir-only load against examples.
+loadpkg gno.land/p/upgrade/v0 $WORK/src/p/upgrade/v0
+loadpkg gno.land/r/upgrade/vault $WORK/src/r/upgrade/vault
+loadpkg gno.land/r/upgrade/vault/v1 $WORK/src/r/upgrade/vault/v1
+
+gnoland start
+
+# v1 goes live.
+gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v1 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stdout OK!
+gnokey query vm/qeval --data 'gno.land/r/upgrade/vault.ImplPath()'
+stdout '"gno.land/r/upgrade/vault/v1"'
+
+# Deposit 1000, withdraw 200 on v1.
+gnokey maketx call -pkgpath gno.land/r/upgrade/vault -func Call -args Deposit -args '' -send 1000ugnot -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stdout OK!
+gnokey maketx call -pkgpath gno.land/r/upgrade/vault -func Call -args Withdraw -args 200 -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stdout OK!
+gnokey query vm/qeval --data "gno.land/r/upgrade/vault.Query(\"BalanceOf\", \"$test1_user_addr\")"
+stdout '"800"'
+
+# Deploy v2. It cannot register before approval.
+gnokey maketx addpkg -pkgdir $WORK/src/r/upgrade/vault/v2 -pkgpath gno.land/r/upgrade/vault/v2 -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stdout OK!
+! gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stderr 'caller is not the approved implementation'
+
+# Approve v2. It cannot register during the delay.
+gnokey maketx call -pkgpath gno.land/r/upgrade/vault -func Approve -args gno.land/r/upgrade/vault/v2 -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stdout OK!
+! gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stderr 'approval is still in its delay'
+
+# Another block passes, then v2 takes over.
+gnokey maketx call -pkgpath gno.land/r/upgrade/vault -func Call -args Deposit -args '' -send 100ugnot -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stdout OK!
+gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stdout OK!
+gnokey query vm/qeval --data 'gno.land/r/upgrade/vault.ImplPath()'
+stdout '"gno.land/r/upgrade/vault/v2"'
+
+# Balances carry over, and v2 charges a 1% fee.
+gnokey query vm/qeval --data "gno.land/r/upgrade/vault.Query(\"BalanceOf\", \"$test1_user_addr\")"
+stdout '"900"'
+gnokey maketx call -pkgpath gno.land/r/upgrade/vault -func Call -args Withdraw -args 500 -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stdout OK!
+gnokey query vm/qeval --data "gno.land/r/upgrade/vault.Query(\"BalanceOf\", \"$test1_user_addr\")"
+stdout '"400"'
+gnokey query vm/qrender --data 'gno.land/r/upgrade/vault:'
+stdout 'Fees collected: 5ugnot'
+
+# v1 cannot take control back.
+! gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v1 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stderr 'caller is not the approved implementation'

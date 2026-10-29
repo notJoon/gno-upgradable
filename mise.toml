@@ -9,6 +9,8 @@ GNO_TOOLCHAIN = "{{env.HOME}}/.cache/gno-toolchains/{{env.GNO_REF}}"
 # the toolchain lives outside the repo so `gno test ./...` does not pick up its sources
 GNOROOT = "{{env.GNO_TOOLCHAIN}}/src"
 _.path = ["{{env.GNO_TOOLCHAIN}}/bin"]
+# outside the repo, so the workspace never sees a second copy of each package
+DEVNET_DIR = "{{env.GNO_TOOLCHAIN}}/devnet"
 
 [tasks.setup]
 description = "Build gno, gnokey, and gnodev at GNO_REF"
@@ -62,5 +64,21 @@ run = "gno lint ./src/..."
 run = "find src -name '*.gno' -exec gofumpt -w -l {} +"
 
 [tasks.dev]
-description = "Local devnet with this repo's packages loaded"
-run = "gnodev ./src/p/upgrade/v0"
+description = "Local gnodev chain with src deployed, except vault/v2 so it can be deployed by hand"
+run = '''
+set -e
+# gnodev runs on a copy: vault/v2 is left out, and UpgradeDelay is cut from a day to 5 blocks
+# because a real chain cannot skip heights the way filetests do.
+rm -rf "$DEVNET_DIR" && mkdir -p "$DEVNET_DIR"
+cp -R src "$DEVNET_DIR/" && touch "$DEVNET_DIR/gnowork.toml"
+rm -rf "$DEVNET_DIR/src/r/upgrade/vault/v2"
+f="$DEVNET_DIR/src/r/upgrade/vault/vault.gno"
+grep -q '^const UpgradeDelay = ' "$f" || { echo "UpgradeDelay not found in $f" >&2; exit 1; }
+perl -pi -e 's/^const UpgradeDelay = .*/const UpgradeDelay = 5/' "$f"
+exec gnodev local -C "$DEVNET_DIR" -empty-blocks -paths gno.land/r/upgrade/vault,gno.land/r/upgrade/vault/v1
+'''
+
+[tasks.integration]
+description = "Run integration/testdata/*.txtar against an in-memory gno.land node"
+dir = "integration"
+run = "go test ./..."

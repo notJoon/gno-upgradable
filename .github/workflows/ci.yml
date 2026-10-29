@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # mise refuses env and tasks from an untrusted mise.toml.
+  MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+
+jobs:
+  ci:
+    name: ${{ matrix.task }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [lint, test, integration]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      # The gno toolchain (GNO_REF in mise.toml) and Go caches, so setup
+      # does not clone and build gno from scratch on every run.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/gno-toolchains
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-${{ matrix.task }}-${{ hashFiles('mise.toml', 'integration/go.sum') }}
+      - run: mise run setup
+      - run: mise run ${{ matrix.task }}
