@@ -15,7 +15,7 @@ func TestApprove(cur realm, t *testing.T) {
 		"gno.land/r/x#sub",
 		"",
 	} {
-		uassert.PanicsWithMessage(t, cur, ErrInvalidPath, func ()  {
+		uassert.PanicsWithMessage(t, cur, ErrInvalidPath, func() {
 			u.Approve(path)
 		})
 	}

@@ -1,11 +1,12 @@
 [tools]
 go = "1.25"
+gofumpt = "0.12.0"
 
 [env]
 # gno release to build the toolchain from. Match it to the target chain (chain/mainnet = v1.2.0).
 GNO_REF = "v1.6.0"
 GNO_TOOLCHAIN = "{{env.HOME}}/.cache/gno-toolchains/{{env.GNO_REF}}"
-# ponytail: the toolchain lives outside the repo so `gno test ./...` does not pick up its sources
+# the toolchain lives outside the repo so `gno test ./...` does not pick up its sources
 GNOROOT = "{{env.GNO_TOOLCHAIN}}/src"
 _.path = ["{{env.GNO_TOOLCHAIN}}/bin"]
 
@@ -29,6 +30,9 @@ run = "gno test -v ./src/..."
 [tasks.lint]
 env = { GNOHOME = "{{env.GNO_TOOLCHAIN}}/gnohome" }
 run = "gno lint ./src/..."
+
+[tasks.fmt]
+run = "find src -name '*.gno' -exec gofumpt -w -l {} +"
 
 [tasks.dev]
 description = "Local devnet with this repo's packages loaded"

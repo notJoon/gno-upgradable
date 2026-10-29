@@ -6,15 +6,15 @@ import (
 )
 
 const (
-	ErrInvalidPath = "upgrade: approved path must be a realm path without a subpath"
+	ErrInvalidPath  = "upgrade: approved path must be a realm path without a subpath"
 	ErrSpoofedRealm = "upgrade: realm must be the proxy's live current realm"
-	ErrNotApproved = "upgrade: caller is not the approved implementation"
+	ErrNotApproved  = "upgrade: caller is not the approved implementation"
 )
 
 // Upgrader records the current impl's package path and
 // pending approval of a proxy realm.
 type Upgrader struct {
-	pkgPath string
+	pkgPath  string
 	approved string
 }
 
