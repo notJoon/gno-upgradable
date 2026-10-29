@@ -40,8 +40,13 @@ stdout OK!
 ! gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stderr 'approval is still in its delay'
 
-# Another block passes, then v2 takes over.
+# Let the 2-block delay pass, then v2 takes over. Every tx commits at least
+# one block, and the node sometimes adds one empty block after a tx, so the
+# check above sees at most one block past the approval while two txs here
+# guarantee two. Waiting on a single tx passes or fails with that timing.
 gnokey maketx call -pkgpath gno.land/r/upgrade/vault -func Call -args Deposit -args '' -send 100ugnot -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stdout OK!
+gnokey maketx send -send 1ugnot -to $test1_user_addr -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
 gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
