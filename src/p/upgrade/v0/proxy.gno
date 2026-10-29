@@ -53,11 +53,26 @@ func (p *Proxy) Register(_ int, rlm realm, next Impl) {
 	next.Migrate(p.store.Begin(0, rlm), NewCustody(0, rlm), from)
 }
 
-// Call forwards a crossing call to the implementation. Coins sent with the
-// call must be taken through tx.Sent, or the call panics and they go back.
-func (p *Proxy) Call(_ int, rlm realm, method, args string) string {
+// Call forwards a crossing call to the implementation by method name.
+func (p *Proxy) Call(_ int, rlm realm, method, args string) (out string) {
+	p.Invoke(0, rlm, func(impl Impl, tx *Tx, c *Custody) {
+		out = impl.Call(tx, c, method, args)
+	})
+	return out
+}
+
+// Invoke runs fn with the implementation and write handles for one crossing
+// call. A proxy uses it for typed entry points that Call cannot carry, such
+// as standard token functions or functions that take callbacks: fn asserts
+// impl to the proxy's own interface and calls it.
+//
+// Coins sent with the call must be taken through tx.Sent, or the call
+// panics and they go back.
+//
+// fn must come from the proxy realm itself, never from a caller.
+func (p *Proxy) Invoke(_ int, rlm realm, fn func(impl Impl, tx *Tx, c *Custody)) {
 	tx := p.store.Begin(0, rlm)
-	out := p.current().Call(tx, NewCustody(0, rlm), method, args)
+	fn(p.current(), tx, NewCustody(0, rlm))
 	if !tx.sentTaken {
 		for _, coin := range tx.sent() {
 			if coin.Amount != 0 {
@@ -65,7 +80,12 @@ func (p *Proxy) Call(_ int, rlm realm, method, args string) string {
 			}
 		}
 	}
-	return out
+}
+
+// Current returns the implementation and a read handle, for typed read
+// functions.
+func (p *Proxy) Current() (Impl, View) {
+	return p.current(), p.store.View()
 }
 
 func (p *Proxy) Query(method, args string) string {
