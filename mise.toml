@@ -19,8 +19,35 @@ cd "$GNOROOT"
 GOBIN="$GNO_TOOLCHAIN/bin" go install ./gnovm/cmd/gno ./gno.land/cmd/gnokey
 cd contribs/gnodev && GOBIN="$GNO_TOOLCHAIN/bin" go install .
 # test deps come from this release's examples, not the shared cache filled from rpc.gno.land
-mkdir -p "$GNO_TOOLCHAIN/gnohome/pkg/mod"
-rm -rf "$GNO_TOOLCHAIN/gnohome/pkg/mod/gno.land" && cp -R "$GNOROOT/examples/gno.land" "$GNO_TOOLCHAIN/gnohome/pkg/mod/"
+mod="$GNO_TOOLCHAIN/gnohome/pkg/mod"
+mkdir -p "$mod"
+rm -rf "$mod/gno.land" "$mod/.markers" && cp -R "$GNOROOT/examples/gno.land" "$mod/"
+# gno re-downloads any package without a .markers/<pkg address> file, so mark every copied package
+cat > "$GNO_TOOLCHAIN/markers.go" <<'EOF'
+package main
+
+import (
+	"io/fs"
+	"os"
+	"path/filepath"
+
+	"github.com/gnolang/gno/gnovm/pkg/gnolang"
+)
+
+func main() {
+	mod := os.Args[1]
+	os.MkdirAll(filepath.Join(mod, ".markers"), 0o755)
+	filepath.WalkDir(filepath.Join(mod, "gno.land"), func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.Name() != "gnomod.toml" {
+			return err
+		}
+		pkg, _ := filepath.Rel(mod, filepath.Dir(p))
+		addr := gnolang.DerivePkgBech32Addr(filepath.ToSlash(pkg)).String()
+		return os.WriteFile(filepath.Join(mod, ".markers", addr), nil, 0o644)
+	})
+}
+EOF
+cd "$GNOROOT" && go run "$GNO_TOOLCHAIN/markers.go" "$mod"
 '''
 
 [tasks.test]
