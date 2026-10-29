@@ -17,12 +17,17 @@ set -e
 cd "$GNOROOT"
 GOBIN="$GNO_TOOLCHAIN/bin" go install ./gnovm/cmd/gno ./gno.land/cmd/gnokey
 cd contribs/gnodev && GOBIN="$GNO_TOOLCHAIN/bin" go install .
+# test deps come from this release's examples, not the shared cache filled from rpc.gno.land
+mkdir -p "$GNO_TOOLCHAIN/gnohome/pkg/mod"
+rm -rf "$GNO_TOOLCHAIN/gnohome/pkg/mod/gno.land" && cp -R "$GNOROOT/examples/gno.land" "$GNO_TOOLCHAIN/gnohome/pkg/mod/"
 '''
 
 [tasks.test]
+env = { GNOHOME = "{{env.GNO_TOOLCHAIN}}/gnohome" }
 run = "gno test -v ./src/..."
 
 [tasks.lint]
+env = { GNOHOME = "{{env.GNO_TOOLCHAIN}}/gnohome" }
 run = "gno lint ./src/..."
 
 [tasks.dev]
