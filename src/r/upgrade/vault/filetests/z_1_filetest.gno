@@ -47,7 +47,7 @@ func main(cur realm) {
 // Output:
 // upgrade: no implementation registered
 // upgrade: caller is not the approved implementation
-// ownable: caller is not owner
+// upgrade: caller is not the owner
 // vault: unknown method Nope
 // vault: amount must be a positive integer
 // upgrade: method did not take the coins sent with it

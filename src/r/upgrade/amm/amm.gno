@@ -8,13 +8,18 @@
 package amm
 
 import (
-	"gno.land/p/nt/ownable/v0"
 	"gno.land/p/upgrade/v0"
 )
 
 // UpgradeDelay is how many blocks an approved upgrade waits before it can
 // be activated, about a day at 5s blocks.
 const UpgradeDelay = 17280
+
+// Admin0 is the first admin, who approves upgrades. It is written in the
+// source, not taken from the deployer, so anyone reviewing the realm can see
+// who controls it. TransferAdmin moves the role later, so implementations
+// must check Admin(), never Admin0.
+const Admin0 address = "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
 
 // Pool is what an implementation provides beyond upgrade.Impl: the typed
 // entry points Call cannot carry. Changing it means a new proxy, so it holds
@@ -37,13 +42,12 @@ type SwapCallback func(cur realm, owed int64, m *CallbackMarker)
 type CallbackMarker struct{}
 
 var (
-	admin  = ownable.NewWithAddress("g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5")
 	proxy  *upgrade.Proxy
 	locked bool
 )
 
 func init(cur realm) {
-	proxy = upgrade.NewProxy(0, cur, UpgradeDelay, "gno.land/r/upgrade/amm/v1")
+	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay, "gno.land/r/upgrade/amm/v1")
 }
 
 // Register is called by the approved implementation realm to take over.
@@ -90,23 +94,17 @@ func enter() func() {
 	return func() { locked = false }
 }
 
-func Approve(cur realm, pkgPath string) {
-	admin.AssertOwnedBy(cur.Previous().Address())
-	proxy.Approve(pkgPath)
-}
+func Approve(cur realm, pkgPath string) { proxy.Approve(0, cur, pkgPath) }
 
-func Cancel(cur realm) {
-	admin.AssertOwnedBy(cur.Previous().Address())
-	proxy.Cancel()
-}
+func Cancel(cur realm) { proxy.Cancel(0, cur) }
 
-func TransferAdmin(cur realm, newAdmin address) {
-	if err := admin.TransferOwnership(0, cur, newAdmin); err != nil {
-		panic(err)
-	}
-}
+// Freeze ends upgrades for good. The current implementation keeps serving.
+func Freeze(cur realm) { proxy.Freeze(0, cur) }
 
-func Admin() address     { return admin.Owner() }
+func TransferAdmin(cur realm, newAdmin address) { proxy.TransferOwnership(0, cur, newAdmin) }
+
+func Admin() address     { return proxy.Owner() }
+func Frozen() bool       { return proxy.Frozen() }
 func ImplPath() string   { return proxy.ImplPath() }
 func Approved() string   { return proxy.Approved() }
 func ApprovedETA() int64 { return proxy.ETA() }

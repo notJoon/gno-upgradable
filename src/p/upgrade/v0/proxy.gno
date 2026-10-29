@@ -32,12 +32,12 @@ type Proxy struct {
 	impl  Impl
 }
 
-// NewProxy returns a proxy owned by the realm whose live cur is rlm, with
-// first approved as its first implementation. Later approvals wait delay
-// blocks.
-func NewProxy(_ int, rlm realm, delay int64, first string) *Proxy {
-	p := &Proxy{u: New(delay), store: NewStore(0, rlm)}
-	p.u.Approve(first)
+// NewProxy returns a proxy held by the realm whose live cur is rlm, with
+// first approved as its first implementation. owner approves later
+// implementations, which wait delay blocks.
+func NewProxy(_ int, rlm realm, owner address, delay int64, first string) *Proxy {
+	p := &Proxy{u: New(owner, delay), store: NewStore(0, rlm)}
+	p.u.approve(first)
 	return p
 }
 
@@ -96,11 +96,22 @@ func (p *Proxy) Render(path string) string {
 	return p.current().Render(p.store.View(), path)
 }
 
-func (p *Proxy) Approve(pkgPath string) { p.u.Approve(pkgPath) }
-func (p *Proxy) Cancel()                { p.u.Cancel() }
-func (p *Proxy) ImplPath() string       { return p.u.PkgPath() }
-func (p *Proxy) Approved() string       { return p.u.Approved() }
-func (p *Proxy) ETA() int64             { return p.u.ETA() }
+// Approve, Cancel, Freeze and TransferOwnership take the proxy realm's
+// live cur and check its caller is the owner, so the realm forwards them
+// as is, with no check of its own. See Upgrader for why the check is here.
+// The realm must pass its own cur, not cur.Previous(), or the check fails.
+func (p *Proxy) Approve(_ int, rlm realm, pkgPath string) { p.u.Approve(0, rlm, pkgPath) }
+func (p *Proxy) Cancel(_ int, rlm realm)                  { p.u.Cancel(0, rlm) }
+func (p *Proxy) Freeze(_ int, rlm realm)                  { p.u.Freeze(0, rlm) }
+func (p *Proxy) TransferOwnership(_ int, rlm realm, next address) {
+	p.u.TransferOwnership(0, rlm, next)
+}
+
+func (p *Proxy) Owner() address   { return p.u.Owner() }
+func (p *Proxy) Frozen() bool     { return p.u.Frozen() }
+func (p *Proxy) ImplPath() string { return p.u.PkgPath() }
+func (p *Proxy) Approved() string { return p.u.Approved() }
+func (p *Proxy) ETA() int64       { return p.u.ETA() }
 
 func (p *Proxy) current() Impl {
 	if p.impl == nil {

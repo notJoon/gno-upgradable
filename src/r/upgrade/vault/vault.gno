@@ -7,7 +7,6 @@
 package vault
 
 import (
-	"gno.land/p/nt/ownable/v0"
 	"gno.land/p/upgrade/v0"
 )
 
@@ -15,35 +14,33 @@ import (
 // be activated, about a day at 5s blocks.
 const UpgradeDelay = 17280
 
-var (
-	admin = ownable.NewWithAddress("g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5")
-	proxy *upgrade.Proxy
-)
+// Admin0 is the first admin, who approves upgrades. It is written in the
+// source, not taken from the deployer, so anyone reviewing the realm can see
+// who controls it. TransferAdmin moves the role later, so implementations
+// must check Admin(), never Admin0.
+const Admin0 address = "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
+
+var proxy *upgrade.Proxy
 
 func init(cur realm) {
-	proxy = upgrade.NewProxy(0, cur, UpgradeDelay, "gno.land/r/upgrade/vault/v1")
+	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay, "gno.land/r/upgrade/vault/v1")
 }
 
-func Approve(cur realm, pkgPath string) {
-	admin.AssertOwnedBy(cur.Previous().Address())
-	proxy.Approve(pkgPath)
-}
+func Approve(cur realm, pkgPath string) { proxy.Approve(0, cur, pkgPath) }
 
 // Cancel drops the pending approval.
-func Cancel(cur realm) {
-	admin.AssertOwnedBy(cur.Previous().Address())
-	proxy.Cancel()
-}
+func Cancel(cur realm) { proxy.Cancel(0, cur) }
 
-func TransferAdmin(cur realm, newAdmin address) {
-	if err := admin.TransferOwnership(0, cur, newAdmin); err != nil {
-		panic(err)
-	}
-}
+// Freeze ends upgrades for good. The current implementation keeps serving.
+func Freeze(cur realm) { proxy.Freeze(0, cur) }
+
+func TransferAdmin(cur realm, newAdmin address) { proxy.TransferOwnership(0, cur, newAdmin) }
 
 // Admin returns the address that approves upgrades. Implementations use it
 // to gate admin methods.
-func Admin() address { return admin.Owner() }
+func Admin() address { return proxy.Owner() }
+
+func Frozen() bool { return proxy.Frozen() }
 
 // Register is called by the approved implementation realm to take over.
 func Register(cur realm, next upgrade.Impl) {

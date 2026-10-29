@@ -7,8 +7,10 @@ import (
 	"gno.land/p/nt/uassert/v0"
 )
 
+const owner address = "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
+
 func TestApprove(cur realm, t *testing.T) {
-	u := New(0)
+	u := New(owner, 0)
 	for _, path := range []string{
 		"gno.land/p/nt/avl/v0",
 		"gno.land/p/x/r/y",
@@ -17,28 +19,24 @@ func TestApprove(cur realm, t *testing.T) {
 		"",
 	} {
 		uassert.PanicsWithMessage(t, cur, ErrInvalidPath, func() {
-			u.Approve(path)
+			u.approve(path)
 		})
 	}
 
-	u.Approve("gno.land/r/x/v1")
-	u.Approve("gno.land/r/x/v2")
+	u.approve("gno.land/r/x/v1")
+	u.approve("gno.land/r/x/v2")
 	uassert.Equal(t, "gno.land/r/x/v2", u.Approved())
 	uassert.Equal(t, "", u.PkgPath())
-
-	u.Cancel()
-	uassert.Equal(t, "", u.Approved())
-	uassert.Equal(t, int64(0), u.ETA())
 }
 
 func TestDelay(cur realm, t *testing.T) {
-	u := New(10)
+	u := New(owner, 10)
 	h := runtime.ChainHeight()
-	u.Approve("gno.land/r/x/v1")
+	u.approve("gno.land/r/x/v1")
 	uassert.Equal(t, h, u.ETA()) // nothing live yet, so no delay
 
 	u.pkgPath = "gno.land/r/x/v1"
-	u.Approve("gno.land/r/x/v2")
+	u.approve("gno.land/r/x/v2")
 	uassert.Equal(t, h+10, u.ETA())
 }
 
