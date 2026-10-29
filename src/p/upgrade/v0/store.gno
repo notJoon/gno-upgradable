@@ -65,6 +65,8 @@ func rowKey(table, key string) string {
 	return table + sep + key
 }
 
+// ---------------------------------------------------
+
 // Tx writes to a store on behalf of its owner during one crossing call.
 type Tx struct {
 	s   *Store
@@ -99,6 +101,8 @@ func (tx *Tx) assertLive() {
 		panic(ErrNotOwner)
 	}
 }
+
+// ---------------------------------------------------
 
 // View reads a store. A table with no rows reads as empty.
 type View struct {

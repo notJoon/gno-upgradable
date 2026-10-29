@@ -65,7 +65,7 @@ func main(cur realm) {
 // v2 alice balance: 800
 // v2 alice balance: 300 coins: 695
 // vault coins: 305
-// # Vault (v2)
+// # Vault
 //
 // Fees collected: 5ugnot
 //

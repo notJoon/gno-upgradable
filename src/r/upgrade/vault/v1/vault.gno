@@ -1,53 +1,56 @@
+// Package vault/v1 is the first implementation of
+// gno.land/r/upgrade/vault. It keeps no state and no authority
+// of its own. Its exported functions do nothing without the live
+// Tx and Custody that only the vault can create, so later versions
+// may build on them.
 package vault
 
 import (
-	"chain"
-	"chain/banker"
-
-	"gno.land/p/nt/avl/v0"
-	"gno.land/p/nt/ufmt/v0"
+	"gno.land/p/upgrade/v0"
 	proxy "gno.land/r/upgrade/vault"
 )
 
+const Balances = "balances" // address -> int64
+
+// Activate makes v1 the vault's implementation.
+// It succeeds only while the vault has approved this realm.
 func Activate(cur realm) {
-	proxy.Register(cross(cur), impl{})
+	proxy.Register(cross(cur), Impl{})
 }
 
-type impl struct{}
+type Impl struct{}
 
-func (impl) Deposit(store *avl.Tree, rlm realm, amount int64) {
-	key := balanceKey(rlm.Previous().Address())
-	store.Set(key, getInt(store, key)+amount)
+func (Impl) Deposit(tx *upgrade.Tx, amount int64) {
+	key := tx.Caller().String()
+	tx.Set(Balances, key, GetInt(tx.View(), Balances, key)+amount)
 }
 
-func (impl) Withdraw(store *avl.Tree, rlm realm, amount int64) {
-	user := rlm.Previous().Address()
-	key := balanceKey(user)
-	bal := getInt(store, key)
+func (Impl) Withdraw(tx *upgrade.Tx, c *proxy.Custody, amount int64) {
+	Debit(tx, amount)
+	c.Pay(tx.Caller(), amount)
+}
+
+func (Impl) BalanceOf(v upgrade.View, addr address) int64 {
+	return GetInt(v, Balances, addr.String())
+}
+
+func (Impl) Render(v upgrade.View, _ string) string {
+	return "# Vault\n"
+}
+
+// Debit takes amount from the caller's balance.
+func Debit(tx *upgrade.Tx, amount int64) {
+	key := tx.Caller().String()
+	bal := GetInt(tx.View(), Balances, key)
 	if amount > bal {
-		panic("v1: insufficient balance")
+		panic("vault: insufficient balance")
 	}
-	store.Set(key, bal-amount)
-
-	bnk := banker.NewBanker(banker.BankerTypeRealmSend, rlm)
-	bnk.SendCoins(rlm.Address(), user, chain.Coins{chain.NewCoin("ugnot", amount)})
+	tx.Set(Balances, key, bal-amount)
 }
 
-func (impl) BalanceOf(store *avl.Tree, addr address) int64 {
-	return getInt(store, balanceKey(addr))
-}
-
-func (impl) Render(store *avl.Tree, _ string) string {
-	return ufmt.Sprintf("# Vault (v1)\n\nAccounts: %d\n", store.Size())
-}
-
-func balanceKey(addr address) string {
-	return "balance/" + addr.String()
-}
-
-func getInt(store *avl.Tree, key string) int64 {
-	if v := store.Get(key); v != nil {
-		return v.(int64)
+func GetInt(v upgrade.View, table, key string) int64 {
+	if n := v.Get(table, key); n != nil {
+		return n.(int64)
 	}
 	return 0
 }

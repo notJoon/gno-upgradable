@@ -1,9 +1,10 @@
 package vault
 
 import (
+	"chain"
+	"chain/banker"
 	"chain/runtime/unsafe"
 
-	"gno.land/p/nt/avl/v0"
 	"gno.land/p/nt/ownable/v0"
 	"gno.land/p/upgrade/v0"
 )
@@ -14,20 +15,21 @@ import (
 // and send coins from the vault's address. Both are valid
 // only for the duration of the call.
 type Impl interface {
-	Deposit(store *avl.Tree, rlm realm, amount int64)
-	Withdraw(store *avl.Tree, rlm realm, amount int64)
-	BalanceOf(store *avl.Tree, addr address) int64
-	Render(store *avl.Tree, path string) string
+	Deposit(tx *upgrade.Tx, amount int64)
+	Withdraw(tx *upgrade.Tx, c *Custody, amount int64)
+	BalanceOf(v upgrade.View, addr address) int64
+	Render(v upgrade.View, path string) string
 }
 
 var (
 	admin = ownable.NewWithAddress("g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5")
-	store = avl.NewTree()
 	u = upgrade.New()
+	store *upgrade.Store
 	impl Impl
 )
 
-func init() {
+func init(cur realm) {
+	store = upgrade.NewStore(0, cur)
 	u.Approve("gno.land/r/upgrade/vault/v1")
 }
 
@@ -62,18 +64,18 @@ func Deposit(cur realm) {
 	if amount <= 0 {
 		panic("vault: send ugnot to deposit")
 	}
-	current().Deposit(store, cur, amount)
+	current().Deposit(store.Begin(0, cur), amount)
 }
 
 func Withdraw(cur realm, amount int64) {
 	if amount <= 0 {
 		panic("vault: withdraw amount must be positive")
 	}
-	current().Withdraw(store, cur, amount)
+	current().Withdraw(store.Begin(0, cur), &Custody{rlm: cur}, amount)
 }
 
 func BalanceOf(addr address) int64 {
-	return current().BalanceOf(store, addr)
+	return current().BalanceOf(store.View(), addr)
 }
 
 func ImplPath() string { return u.PkgPath() }
@@ -83,7 +85,28 @@ func ImplPath() string { return u.PkgPath() }
 func Approved() string { return u.Approved() }
 
 func Render(path string) string {
-	return current().Render(store, path)
+	return current().Render(store.View(), path)
+}
+
+// --------------------------------------------------
+
+// Custody sends the vault's coin for an implementation.
+// It never hands out the banker it uses, so an implementation
+// keeps no access to the vault's coins after the call.
+//
+// Only the vault can build a `Custody` that works: a zero value
+// declared elsewhere has no realm and refuses every send.
+type Custody struct {
+	rlm realm
+}
+
+// Pay sends `amount` ugnot from the vault to `to`.
+func (c *Custody) Pay(to address, amount int64)  {
+	if c == nil || c.rlm == nil || !c.rlm.IsCurrent() {
+		panic("vault: custody is not live")
+	}
+	bnk := banker.NewBanker(banker.BankerTypeRealmSend, c.rlm)
+	bnk.SendCoins(c.rlm.Address(), to, chain.Coins{chain.NewCoin("ugnot", amount)})
 }
 
 func current() Impl {
