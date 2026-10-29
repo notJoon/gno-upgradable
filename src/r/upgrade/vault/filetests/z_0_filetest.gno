@@ -72,7 +72,7 @@ func main(cur realm) {
 // Output:
 // impl: gno.land/r/upgrade/vault/v1
 // v1 alice balance: 800 coins: 200
-// vault: unknown method CollectFees
+// upgrade: unknown method CollectFees
 // upgrade: caller is not the approved implementation
 // approved: gno.land/r/upgrade/vault/v2
 // upgrade: approval is still in its delay

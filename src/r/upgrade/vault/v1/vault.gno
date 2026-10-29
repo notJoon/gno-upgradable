@@ -28,6 +28,10 @@ type Impl struct{}
 
 func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {}
 
+func (Impl) Methods() (calls, queries []string) {
+	return []string{"Deposit", "Withdraw"}, []string{"BalanceOf"}
+}
+
 func (Impl) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) string {
 	switch method {
 	case "Deposit":

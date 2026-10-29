@@ -48,7 +48,7 @@ func main(cur realm) {
 // upgrade: no implementation registered
 // upgrade: caller is not the approved implementation
 // upgrade: caller is not the owner
-// vault: unknown method Nope
+// upgrade: unknown method Nope
 // vault: amount must be a positive integer
 // upgrade: method did not take the coins sent with it
 // vault: send only ugnot to deposit

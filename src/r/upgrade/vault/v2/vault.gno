@@ -32,6 +32,11 @@ func (impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {
 	}
 }
 
+func (i impl) Methods() (calls, queries []string) {
+	calls, queries = i.Impl.Methods()
+	return append(calls, "CollectFees"), queries
+}
+
 func (i impl) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) string {
 	switch method {
 	case "Withdraw":

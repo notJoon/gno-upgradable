@@ -2,7 +2,7 @@
 
 // Rolling back is an ordinary upgrade to the old realm: it waits the delay,
 // keeps balances and coins, and leaves the newer version's tables for when
-// it comes back.
+// it comes back. Methods the old realm lacks are unavailable meanwhile.
 package main
 
 import (
@@ -42,12 +42,14 @@ func main(cur realm) {
 	vault.Call(cross(cur), "Withdraw", "100") // 1 fee
 	println("v2 alice coins:", bnk.GetCoin(alice, "ugnot"))
 
-	// Back to v1, after the same delay as any upgrade.
+	// Back to v1, after the same delay as any upgrade. v1 has no
+	// CollectFees, which a rollback is allowed to leave out.
 	upgradeTo(cur, "gno.land/r/upgrade/vault/v1", func() { v1.Activate(cross(cur)) })
 	testing.SetRealm(testing.NewUserRealm(alice))
 	println("v1 alice balance:", vault.Query("BalanceOf", alice.String()))
 	vault.Call(cross(cur), "Withdraw", "100") // no fee
 	println("v1 alice coins:", bnk.GetCoin(alice, "ugnot"), "vault coins:", bnk.GetCoin(vaultAddr, "ugnot"))
+	println(revive(func() { vault.Call(cross(cur), "CollectFees", "") }))
 
 	// Forward to v2 again: the fee v2 collected is still there.
 	upgradeTo(cur, "gno.land/r/upgrade/vault/v2", func() { v2.Activate(cross(cur)) })
@@ -62,6 +64,7 @@ func main(cur realm) {
 // impl: gno.land/r/upgrade/vault/v1
 // v1 alice balance: 900
 // v1 alice coins: 199 vault coins: 801
+// upgrade: CollectFees is unavailable under the current implementation
 // upgrade: approval is still in its delay
 // impl: gno.land/r/upgrade/vault/v2
 // # Vault

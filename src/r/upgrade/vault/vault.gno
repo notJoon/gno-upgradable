@@ -26,6 +26,8 @@ func init(cur realm) {
 	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay, "gno.land/r/upgrade/vault/v1")
 }
 
+// Approve lets pkgPath register after the delay. Unless it served before,
+// it must answer every method in API.
 func Approve(cur realm, pkgPath string) { proxy.Approve(0, cur, pkgPath) }
 
 // Cancel drops the pending approval.
@@ -62,5 +64,16 @@ func Approved() string { return proxy.Approved() }
 // ApprovedETA returns the first block height at which the approved
 // implementation can register, or 0 if there is none.
 func ApprovedETA() int64 { return proxy.ETA() }
+
+// Methods lists the methods Call and Query answer now.
+func Methods() (calls, queries []string) { return proxy.Methods() }
+
+// API lists every method any implementation has served. After a rollback
+// some may be unavailable; a later implementation must answer them all.
+func API() (calls, queries []string) { return proxy.API() }
+
+// Missing lists the API methods next lacks, so an implementation's tests
+// can check it before approval.
+func Missing(next upgrade.Impl) (calls, queries []string) { return proxy.Missing(next) }
 
 func Render(path string) string { return proxy.Render(path) }

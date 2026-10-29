@@ -43,7 +43,8 @@ type Upgrader struct {
 	delay    int64
 	pkgPath  string
 	approved string
-	eta      int64 // first height at which approved may be accepted
+	eta      int64    // first height at which approved may be accepted
+	served   []string // every path that has been the implementation
 	frozen   bool
 }
 
@@ -61,6 +62,9 @@ func New(owner address, delay int64) *Upgrader {
 // Approve lets the realm at pkgPath become the next implementation,
 // replacing any pending approval. rlm is the holding realm's live cur, and
 // its caller must be the owner.
+//
+// Approving a path that has been the implementation before is a rollback.
+// See IsRollback.
 func (u *Upgrader) Approve(_ int, rlm realm, pkgPath string) {
 	u.assertOwner(0, rlm)
 	u.approve(pkgPath)
@@ -95,7 +99,8 @@ func (u *Upgrader) approve(pkgPath string) {
 	if u.pkgPath != "" {
 		u.eta += u.delay
 	}
-	chain.Emit("UpgradeApproved", "pkgPath", pkgPath, "eta", strconv.FormatInt(u.eta, 10))
+	chain.Emit("UpgradeApproved", "pkgPath", pkgPath,
+		"eta", strconv.FormatInt(u.eta, 10), "rollback", strconv.FormatBool(u.IsRollback()))
 }
 
 // Cancel drops the pending approval, if any. Owner only.
@@ -158,7 +163,24 @@ func (u *Upgrader) assertOwner(_ int, rlm realm) {
 	}
 }
 
+// Accept makes the calling realm the current implementation. rlm is the
+// holding realm's live cur, and its caller must be the approved realm,
+// once the delay has passed.
 func (u *Upgrader) Accept(_ int, rlm realm) {
+	caller := u.assertAcceptable(0, rlm)
+	rollback := u.IsRollback()
+	chain.Emit("Upgraded", "from", u.pkgPath, "to", caller, "rollback", strconv.FormatBool(rollback))
+	if !rollback {
+		u.served = append(u.served, caller)
+	}
+	u.pkgPath, u.approved, u.eta = caller, "", 0
+}
+
+// assertAcceptable runs Accept's checks without accepting, so Proxy can
+// check the next implementation's methods before anything changes. Doing
+// that after Accept would leave the Upgrader naming an implementation the
+// Proxy refused, wherever the panic is recovered.
+func (u *Upgrader) assertAcceptable(_ int, rlm realm) string {
 	if !rlm.IsCurrent() {
 		panic(ErrSpoofedRealm)
 	}
@@ -172,8 +194,7 @@ func (u *Upgrader) Accept(_ int, rlm realm) {
 	if runtime.ChainHeight() < u.eta {
 		panic(ErrTooEarly)
 	}
-	chain.Emit("Upgraded", "from", u.pkgPath, "to", caller)
-	u.pkgPath, u.approved, u.eta = caller, "", 0
+	return caller
 }
 
 // PkgPath returns the package path of the current implementation,
@@ -192,6 +213,21 @@ func (u *Upgrader) Owner() address { return u.owner }
 
 // Frozen reports whether Freeze has ended upgrades.
 func (u *Upgrader) Frozen() bool { return u.frozen }
+
+// IsRollback reports whether the pending approval names a path that has
+// been the implementation before. A package path cannot be deployed twice,
+// so that path still holds the same code that served then.
+func (u *Upgrader) IsRollback() bool {
+	if u.approved == "" {
+		return false
+	}
+	for _, p := range u.served {
+		if p == u.approved {
+			return true
+		}
+	}
+	return false
+}
 
 // ETA returns the first block height at which the pending approval can be
 // accepted, or 0 if there is none.

@@ -29,6 +29,10 @@ type Impl struct{}
 
 func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {}
 
+func (Impl) Methods() (calls, queries []string) {
+	return []string{"AddLiquidity"}, []string{"SharesOf"}
+}
+
 func (Impl) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) string {
 	if method != "AddLiquidity" {
 		panic("amm: unknown method " + method)
