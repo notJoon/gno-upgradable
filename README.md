@@ -1,1 +1,1 @@
-# gno-upgreable
+# gno-upgradable

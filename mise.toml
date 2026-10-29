@@ -1,0 +1,30 @@
+[tools]
+go = "1.25"
+
+[env]
+# gno release to build the toolchain from. Match it to the target chain (chain/mainnet = v1.2.0).
+GNO_REF = "v1.6.0"
+GNO_TOOLCHAIN = "{{env.HOME}}/.cache/gno-toolchains/{{env.GNO_REF}}"
+# ponytail: the toolchain lives outside the repo so `gno test ./...` does not pick up its sources
+GNOROOT = "{{env.GNO_TOOLCHAIN}}/src"
+_.path = ["{{env.GNO_TOOLCHAIN}}/bin"]
+
+[tasks.setup]
+description = "Build gno, gnokey, and gnodev at GNO_REF"
+run = '''
+set -e
+[ -d "$GNOROOT" ] || git clone -q --depth 1 --branch "$GNO_REF" https://github.com/gnolang/gno "$GNOROOT"
+cd "$GNOROOT"
+GOBIN="$GNO_TOOLCHAIN/bin" go install ./gnovm/cmd/gno ./gno.land/cmd/gnokey
+cd contribs/gnodev && GOBIN="$GNO_TOOLCHAIN/bin" go install .
+'''
+
+[tasks.test]
+run = "gno test -v ./src/..."
+
+[tasks.lint]
+run = "gno lint ./src/..."
+
+[tasks.dev]
+description = "Local devnet with this repo's packages loaded"
+run = "gnodev ./src/p/upgrade/v0"
