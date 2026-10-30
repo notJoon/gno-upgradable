@@ -41,16 +41,14 @@ func init(cur realm) {
 }
 
 func Approve(cur realm, pkgPath string)          { proxy.Approve(0, cur, pkgPath) }
-func Bootstrap(cur realm, first Implementation)  { proxy.Bootstrap(0, cur, first) }
-func Prepare(cur realm, next Implementation)     { proxy.Prepare(0, cur, next) }
-func Register(cur realm)                         { proxy.Register(0, cur) }
+func Upgrade(cur realm, next Implementation)     { proxy.Upgrade(0, cur, next) }
 func Call(cur realm, method, args string) string { return proxy.Call(0, cur, method, args) }
 func Query(method, args string) string           { return proxy.Query(method, args) }
 func Render(path string) string                  { return proxy.Render(path) }
 ```
 
-Each implementation realm provides an implementation value and registers itself
-with parameterless crossing functions:
+Each implementation realm provides an implementation value and installs itself
+with one parameterless crossing function:
 
 ```go
 // Package app (v1) is an implementation. It holds no state of its own.
@@ -63,13 +61,13 @@ import (
 	proxy "gno.land/r/you/app"
 )
 
-func Bootstrap(cur realm) { proxy.Bootstrap(cross(cur), Impl{}) } // first version
-func Prepare(cur realm)   { proxy.Prepare(cross(cur), Impl{}) }   // later versions
-func Activate(cur realm)  { proxy.Register(cross(cur)) }          // after the delay
+// Upgrade installs the first version at once. A later version calls it twice:
+// once to start the delay, and again after it.
+func Upgrade(cur realm) { proxy.Upgrade(cross(cur), Impl{}) }
 
 type Impl struct{}
 
-func (Impl) ID() string { return "gno.land/r/you/app/v1:impl" }
+var _ proxy.Implementation = Impl{}
 
 func (Impl) Methods() (calls, queries []upgrade.Method) {
 	return []upgrade.Method{{Name: "Inc", Schema: "v1:void->void"}},
@@ -97,8 +95,7 @@ admin methods, a migration and tests.
 
 ### String calls or typed entry points
 
-`Impl` contains only the lifecycle shared by every implementation: a stable ID
-and `Migrate`. `Dispatcher` adds the optional string `Call`/`Query` interface,
+`Impl` contains only the lifecycle shared by every implementation: `Migrate`. `Dispatcher` adds the optional string `Call`/`Query` interface,
 and `Renderer` independently adds `Render`. A typed-only proxy can therefore
 embed `Impl` without implementing unused string or rendering methods.
 
@@ -117,24 +114,26 @@ so keep it to what must be typed. If it makes callbacks, guard every entry point
 that can observe inconsistent application state or replace the implementation,
 as the AMM does.
 
-`Prepare` snapshots the dispatcher manifest and records the implementation ID
-and a SHA-256 fingerprint of its optional capabilities. Calls route through
-that snapshot, and `Register` refuses activation if the ID or fingerprint
-changed during the delay. Proxies can expose `ImplID`, `PendingImplID`,
-`ManifestHash`, and `PendingManifestHash` for monitoring.
+The proxy names an implementation by the realm that installs it and the value
+itself, compared with `==`. The chain authenticates the realm, and the value's
+type decides the code that runs. Use a value type such as an empty struct: a
+pointer compares by address, so a fresh pointer on each call never matches. When the delay starts, the proxy copies the method lists and saves
+the value. Calls route through that copy, and only the saved value can be
+installed. See [ADR 0002](docs/adr/0002-identify-implementations-by-value.md).
 
 ## Upgrade lifecycle
 
 1. The proxy creates an empty `upgrade.Proxy` with an owner and delay.
 2. After the first implementation realm is deployed, the owner approves its
-   path and it calls `Bootstrap` with its fixed implementation value. It has no
-   delay because there is no live code to protect yet.
+   path and it calls `Upgrade` with its fixed implementation value. It is
+   installed at once because there is no live code to protect yet.
 3. The owner deploys and approves the next implementation realm.
-4. The approved realm calls `Prepare`. This checks the grow-only method API and
-   starts the full delay only after the code exists on-chain.
-5. At or after `ETA`, the same realm calls parameterless `Register`. The proxy
-   verifies the saved implementation ID and manifest hash, activates the value
-   saved by `Prepare`, and calls `Migrate` in the same transaction.
+4. The approved realm calls `Upgrade`. This checks the grow-only method API,
+   saves the value, and starts the full delay only after the code exists
+   on-chain.
+5. At or after `ETA`, the same realm calls `Upgrade` again with the same value.
+   The proxy installs the saved value and calls `Migrate` in the same
+   transaction.
 
 ![Where the vault's data lives in three steps: v1 writes rows into the proxy's Store, an upgrade switches the implementation without moving rows, and v2 reads v1's rows and adds a table](docs/storage.svg)
 
@@ -145,15 +144,15 @@ realm globals. An upgrade does not move proxy data: it changes which code reads
 and writes the proxy's `Store`, so v2 reads the rows v1 wrote and adds new tables
 beside them.
 
-The package authenticates the approved realm when it calls `Bootstrap`, but it
+The package authenticates the approved realm when it calls `Upgrade`, but it
 cannot query whether an arbitrary package path is already deployed. The owner
 must therefore treat “deploy, inspect, then approve” as an operational
 invariant for the first implementation.
 
 The owner may cancel a pending upgrade. `Freeze` permanently disables future
 upgrades without disabling implementation-level admin methods. A rollback is
-the same delayed lifecycle applied to a previously served realm path,
-implementation ID, and manifest hash tuple. Ownership transfer completes only
+the same delayed lifecycle applied to an implementation value that the same
+realm installed before. Ownership transfer completes only
 after the nominated address calls `AcceptOwnership` through the proxy's
 corresponding forwarding function.
 
@@ -217,15 +216,14 @@ or another protocol, needs a new proxy. Decide those calls before deploying.
 
 In particular:
 
-- Keep implementation values stateless. Give every concrete implementation a
-  stable, unique `ID`; store application state through `Tx` and hold assets
-  through `Custody`.
+- Keep implementation values stateless value types, such as an empty struct.
+  Store application state through `Tx` and hold assets through `Custody`.
 - `Custody.ApproveForCall` clears each allowance before a successful call or
   migration returns. An on-chain cross-realm panic aborts the whole transaction;
   `revive` is enabled only in tests in the pinned Gno release. Persistent
   delegation needs a separate, explicitly tracked design.
-- Export parameterless `Prepare` and `Activate` functions. `Prepare` must pass a
-  fixed implementation value; `Activate` registers that saved value.
+- Export a parameterless `Upgrade` function that passes a fixed implementation
+  value, so the value saved when the delay starts is the one installed.
 - `Methods` checks selector, schema ID, and call/query placement. Review
   authorization and semantic compatibility separately; a schema ID is a
   commitment chosen by the implementation, not a generated ABI.
@@ -233,15 +231,14 @@ In particular:
   old implementation unable to read state after rollback.
 - A typed proxy that makes callbacks must lock every entry point that can read
   inconsistent state or replace the implementation. The AMM applies the same
-  lock to `Swap`, reads, string calls, and `Register`.
+  lock to `Swap`, reads, string calls, and `Upgrade`.
 - Keep retired method names and return a clear panic. Only a rollback may
   temporarily leave a previously served method unavailable.
 
-Every upgrade event includes the proxy realm in a `realm` attribute. For a
-Proxy-driven upgrade, `UpgradePrepared` and `Upgraded` also include the concrete
-implementation ID and manifest hash. Before `Prepare`, `UpgradeApproved` can
-only report whether the realm path is a `rollbackCandidate`; the exact rollback
-classification uses the path, ID, and manifest hash together. `Render` prepends
+Every upgrade event includes the proxy realm in a `realm` attribute.
+`UpgradePrepared` and `Upgraded` report whether the value is a rollback. Gno
+has no reflection to name a value's type, so events name the realm path only.
+`Render` prepends
 a pending-upgrade, rollback, or freeze banner that implementations cannot hide.
 Production monitoring should consume the events rather than rely on users
 opening the rendered page.
@@ -275,5 +272,5 @@ Before deploying a proxy:
 - test activation, cancellation, ownership transfer, freeze, migration,
   rollback, unexpected coins, and retained-handle rejection;
 - test callback and asset flows on a real node, not only with filetests; and
-- audit the approved realm, the concrete implementation type it passes to
-  `Prepare`, and the emitted implementation ID and manifest hash.
+- audit the approved realm and the concrete implementation type it passes to
+  `Upgrade`.
