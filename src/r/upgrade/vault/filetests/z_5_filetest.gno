@@ -55,7 +55,9 @@ type noFees struct{ v1.Impl }
 func main(cur realm) {
 	alice := testutils.TestAddress("alice")
 	self := testing.NewCodeRealm("gno.land/r/demo/main")
-	v1.Activate(cross(cur))
+	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
+	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
+	v1.Bootstrap(cross(cur))
 	println(vault.Methods())
 
 	// Unlisted names are refused before the implementation runs.
@@ -67,16 +69,13 @@ func main(cur realm) {
 	println(vault.Missing(noWithdraw{}))
 	println(vault.Missing(moved{}))
 
-	// Prepare with a whole implementation, then register lacking ones:
-	// Register checks again, since it may be handed a different value.
+	// Register activates the exact implementation saved by Prepare.
 	approve(cur, "gno.land/r/demo/main")
 	testing.SetRealm(self)
 	vault.Prepare(cross(cur), noFees{})
 	testing.SkipHeights(vault.UpgradeDelay)
-	println(revive(func() { vault.Register(cross(cur), noWithdraw{}) }))
-	println(revive(func() { vault.Register(cross(cur), moved{}) }))
-	// A refused registration changes nothing.
-	println("impl:", vault.ImplPath(), "approved:", vault.Approved())
+	vault.Register(cross(cur))
+	println("impl:", vault.ImplPath())
 
 	// Rolling back from v2 to v1 leaves CollectFees out, but it stays in
 	// the API, so the next new implementation must answer it.
@@ -96,9 +95,8 @@ func main(cur realm) {
 	testing.SetRealm(self)
 	vault.Prepare(cross(cur), retired{})
 	testing.SkipHeights(vault.UpgradeDelay)
-	println(revive(func() { vault.Register(cross(cur), noFees{}) }))
 	// Retiring keeps the name and fails with a reason.
-	vault.Register(cross(cur), retired{})
+	vault.Register(cross(cur))
 	println("impl:", vault.ImplPath())
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	println(revive(func() { vault.Call(cross(cur), "CollectFees", "") }))
@@ -110,12 +108,9 @@ func main(cur realm) {
 // upgrade: unknown method Deposit
 // slice[("Withdraw" string)] (nil []string)
 // (nil []string) slice[("BalanceOf" string)]
-// upgrade: next implementation lacks API methods: Call Withdraw; to retire one, keep it and make it panic
-// upgrade: next implementation lacks API methods: Query BalanceOf; to retire one, keep it and make it panic
-// impl: gno.land/r/upgrade/vault/v1 approved: gno.land/r/demo/main
+// impl: gno.land/r/demo/main
 // impl: gno.land/r/upgrade/vault/v1
 // slice[("Deposit" string),("Withdraw" string)] slice[("BalanceOf" string)]
 // slice[("Deposit" string),("Withdraw" string),("CollectFees" string)] slice[("BalanceOf" string)]
-// upgrade: next implementation lacks API methods: Call CollectFees; to retire one, keep it and make it panic
 // impl: gno.land/r/demo/main
 // vault: CollectFees was retired

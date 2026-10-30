@@ -15,7 +15,9 @@ loadpkg gno.land/r/upgrade/vault/v1 $WORK/src/r/upgrade/vault/v1
 gnoland start
 
 # v1 goes live.
-gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v1 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/upgrade/vault -func Approve -args gno.land/r/upgrade/vault/v1 -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stdout OK!
+gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v1 -func Bootstrap -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
 gnokey query vm/qeval --data 'gno.land/r/upgrade/vault.ImplPath()'
 stdout '"gno.land/r/upgrade/vault/v1"'

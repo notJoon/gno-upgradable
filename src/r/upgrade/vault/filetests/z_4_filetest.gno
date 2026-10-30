@@ -30,7 +30,9 @@ func main(cur realm) {
 	alice := testutils.TestAddress("alice")
 	vaultAddr := chain.PackageAddress("gno.land/r/upgrade/vault")
 	bnk := banker.NewReadonlyBanker()
-	v1.Activate(cross(cur))
+	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
+	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
+	v1.Bootstrap(cross(cur))
 
 	testing.IssueCoins(vaultAddr, chain.Coins{{"ugnot", 1000}})
 	testing.SetOriginSend(chain.Coins{{"ugnot", 1000}})

@@ -21,7 +21,9 @@ func main(cur realm) {
 	alice := testutils.TestAddress("alice")
 	pool := chain.PackageAddress(ammPath)
 	self := chain.PackageAddress("gno.land/r/demo/main")
-	v1.Activate(cross(cur))
+	testing.SetRealm(testing.NewUserRealm(amm.Admin0))
+	amm.Approve(cross(cur), "gno.land/r/upgrade/amm/v1")
+	v1.Bootstrap(cross(cur))
 
 	// alice adds liquidity from her account.
 	testing.SetRealm(testing.NewUserRealm(alice))
@@ -76,4 +78,4 @@ func must(err error) {
 // swap out: 91 reserves: 1200 1009
 // pool A: 1200 B: 1009
 // amm: callback underpaid
-// amm: reentrant call
+// upgrade: reentrant call

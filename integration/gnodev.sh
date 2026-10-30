@@ -59,7 +59,10 @@ tx() {
 		-remote 127.0.0.1:26657 "$@"
 }
 
-tx maketx call -pkgpath gno.land/r/upgrade/vault/v1 -func Activate \
+tx maketx call -pkgpath gno.land/r/upgrade/vault -func Approve \
+	-args gno.land/r/upgrade/vault/v1 -gas-fee 1000000ugnot \
+	-gas-wanted 50000000 -broadcast -chainid dev test1 >/dev/null
+tx maketx call -pkgpath gno.land/r/upgrade/vault/v1 -func Bootstrap \
 	-gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid dev test1 >/dev/null
 tx maketx call -pkgpath gno.land/r/upgrade/vault -func Call -args Deposit -args '' \
 	-send 1000ugnot -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid dev test1 >/dev/null

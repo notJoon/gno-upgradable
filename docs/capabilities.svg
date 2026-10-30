@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="904" viewBox="0 0 940 904">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#000"/></marker><marker id="arrowRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d93a2b"/></marker></defs>
+<rect width="940" height="904" fill="#fff"/>
+<g transform="translate(0,24)">
+<text x="14" y="24" font-size="22" text-anchor="start" fill="#d93a2b" font-weight="bold" font-family="Helvetica, Arial, sans-serif">A</text>
+<text x="40" y="23" font-size="14" text-anchor="start" fill="#000" font-weight="bold" font-family="Helvetica, Arial, sans-serif">During a call</text>
+<circle cx="100" cy="95" r="38" fill="#cdeb8b" stroke="#6b8e23" stroke-width="1.5"/>
+<text x="100" y="100" font-size="13" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Proxy</text>
+<g stroke="#000" stroke-width="1.5" fill="none"><circle cx="640" cy="70" r="8" fill="#cdeb8b"/><line x1="640" y1="78" x2="640" y2="102"/><line x1="627" y1="86" x2="653" y2="86"/><line x1="640" y1="102" x2="629" y2="120"/><line x1="640" y1="102" x2="651" y2="120"/></g>
+<text x="640" y="56" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">User</text>
+<circle cx="612" cy="92" r="3.5" fill="#000"/>
+<polygon points="600,77 172,77 172,66 146,92 172,118 172,107 600,107" fill="#fff36b" stroke="#b8a600" stroke-width="1.5"/>
+<text x="386.0" y="96" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Swap(pool, ...)</text>
+<circle cx="330" cy="205" r="38" fill="#cdeb8b" stroke="#6b8e23" stroke-width="1.5"/>
+<text x="330" y="210" font-size="13" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Impl v2</text>
+<path d="M 100,133 C 100,180 120,205 160,205" fill="none" stroke="#000" stroke-width="1.4" marker-end="url(#arrow)"/>
+<polygon points="160,190 260,190 260,179 286,205 260,231 260,220 160,220" fill="#fff36b" stroke="#b8a600" stroke-width="1.5"/>
+<text x="210.0" y="209" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Handle(tx, c)</text>
+<circle cx="500" cy="170" r="30" fill="#cdeb8b" stroke="#6b8e23" stroke-width="1.5"/>
+<text x="500" y="175" font-size="13" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Tx</text>
+<circle cx="500" cy="240" r="30" fill="#cdeb8b" stroke="#6b8e23" stroke-width="1.5"/>
+<text x="500" y="245" font-size="13" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Custody</text>
+<path d="M 366,192 L 468,175" fill="none" stroke="#000" stroke-width="1.4" stroke-dasharray="6,5" marker-end="url(#arrow)"/>
+<path d="M 366,218 L 468,235" fill="none" stroke="#000" stroke-width="1.4" stroke-dasharray="6,5" marker-end="url(#arrow)"/>
+<rect x="600" y="150" width="104" height="40" fill="#dbe7fb" stroke="#7a9fd8" stroke-width="1.5"/>
+<text x="652.0" y="175.0" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Proxy state</text>
+<rect x="600" y="220" width="104" height="40" fill="#dbe7fb" stroke="#7a9fd8" stroke-width="1.5"/>
+<text x="652.0" y="245.0" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Proxy assets</text>
+<path d="M 530,170 L 598,170" fill="none" stroke="#000" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 530,240 L 598,240" fill="none" stroke="#000" stroke-width="1.4" marker-end="url(#arrow)"/>
+<text x="500" y="290" font-size="11" text-anchor="middle" fill="#555" font-weight="normal" font-family="Helvetica, Arial, sans-serif">dashed: valid only while the proxy's call is live</text>
+<text x="14" y="324" font-size="22" text-anchor="start" fill="#d93a2b" font-weight="bold" font-family="Helvetica, Arial, sans-serif">B</text>
+<text x="40" y="323" font-size="14" text-anchor="start" fill="#000" font-weight="bold" font-family="Helvetica, Arial, sans-serif">After the upgrade</text>
+<circle cx="100" cy="395" r="38" fill="#cdeb8b" stroke="#6b8e23" stroke-width="1.5"/>
+<text x="100" y="400" font-size="13" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Proxy</text>
+<circle cx="330" cy="395" r="38" fill="#cdeb8b" stroke="#6b8e23" stroke-width="1.5"/>
+<text x="330" y="400" font-size="13" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Impl v2</text>
+<path d="M 138,395 L 290,395" fill="none" stroke="#000" stroke-width="1.4" marker-end="url(#arrow)"/>
+<text x="214" y="387" font-size="11" text-anchor="middle" fill="#555" font-weight="normal" font-family="Helvetica, Arial, sans-serif">current</text>
+<rect x="48" y="465" width="104" height="40" fill="#dbe7fb" stroke="#7a9fd8" stroke-width="1.5"/>
+<text x="100.0" y="490.0" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Proxy state</text>
+<rect x="48" y="520" width="104" height="40" fill="#dbe7fb" stroke="#7a9fd8" stroke-width="1.5"/>
+<text x="100.0" y="545.0" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Proxy assets</text>
+<path d="M 100,433 L 100,463" fill="none" stroke="#000" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 73,422 C 24,470 24,525 46,538" fill="none" stroke="#000" stroke-width="1.4" marker-end="url(#arrow)"/>
+<circle cx="470" cy="505" r="38" fill="#e4e4e4" stroke="#9a9a9a" stroke-width="1.5"/>
+<text x="470" y="503" font-size="13" text-anchor="middle" fill="#666" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Impl v1</text>
+<text x="470" y="519" font-size="11" text-anchor="middle" fill="#666" font-weight="normal" font-family="Helvetica, Arial, sans-serif">(retired)</text>
+<g stroke="#000" stroke-width="1.5" fill="none"><circle cx="690" cy="483" r="8" fill="#cdeb8b"/><line x1="690" y1="491" x2="690" y2="515"/><line x1="677" y1="499" x2="703" y2="499"/><line x1="690" y1="515" x2="679" y2="533"/><line x1="690" y1="515" x2="701" y2="533"/></g>
+<text x="690" y="469" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Anyone</text>
+<circle cx="662" cy="505" r="3.5" fill="#000"/>
+<polygon points="650,490 538,490 538,479 512,505 538,531 538,520 650,520" fill="#fff36b" stroke="#b8a600" stroke-width="1.5"/>
+<text x="594.0" y="509" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">any call</text>
+<text x="470" y="570" font-size="11" text-anchor="middle" fill="#555" font-weight="normal" font-family="Helvetica, Arial, sans-serif">no write or asset capability, may retain a View</text>
+<text x="14" y="614" font-size="22" text-anchor="start" fill="#d93a2b" font-weight="bold" font-family="Helvetica, Arial, sans-serif">C</text>
+<text x="40" y="613" font-size="14" text-anchor="start" fill="#000" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Contrast: passing the proxy's cur to implementations</text>
+<circle cx="100" cy="685" r="38" fill="#cdeb8b" stroke="#6b8e23" stroke-width="1.5"/>
+<text x="100" y="690" font-size="13" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Proxy</text>
+<circle cx="330" cy="685" r="38" fill="#cdeb8b" stroke="#6b8e23" stroke-width="1.5"/>
+<text x="330" y="690" font-size="13" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Impl v2</text>
+<path d="M 138,685 L 290,685" fill="none" stroke="#000" stroke-width="1.4" marker-end="url(#arrow)"/>
+<text x="214" y="677" font-size="11" text-anchor="middle" fill="#555" font-weight="normal" font-family="Helvetica, Arial, sans-serif">current</text>
+<circle cx="330" cy="780" r="38" fill="#e4e4e4" stroke="#9a9a9a" stroke-width="1.5"/>
+<text x="330" y="778" font-size="13" text-anchor="middle" fill="#666" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Impl v1</text>
+<text x="330" y="794" font-size="11" text-anchor="middle" fill="#666" font-weight="normal" font-family="Helvetica, Arial, sans-serif">(retired)</text>
+<circle cx="510" cy="740" r="30" fill="#cdeb8b" stroke="#6b8e23" stroke-width="1.5"/>
+<text x="510" y="745" font-size="13" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">banker</text>
+<circle cx="510" cy="805" r="30" fill="#cdeb8b" stroke="#6b8e23" stroke-width="1.5"/>
+<text x="510" y="810" font-size="13" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">teller</text>
+<path d="M 366,768 L 478,745" fill="none" stroke="#d93a2b" stroke-width="1.4" marker-end="url(#arrowRed)"/>
+<path d="M 366,792 L 478,802" fill="none" stroke="#d93a2b" stroke-width="1.4" marker-end="url(#arrowRed)"/>
+<rect x="600" y="752" width="104" height="40" fill="#dbe7fb" stroke="#7a9fd8" stroke-width="1.5"/>
+<text x="652.0" y="777.0" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Proxy assets</text>
+<path d="M 540,740 L 598,766" fill="none" stroke="#000" stroke-width="1.4" marker-end="url(#arrow)"/>
+<path d="M 540,805 L 598,782" fill="none" stroke="#000" stroke-width="1.4" marker-end="url(#arrow)"/>
+<text x="470" y="852" font-size="11" text-anchor="middle" fill="#d93a2b" font-weight="normal" font-family="Helvetica, Arial, sans-serif">kept from an earlier call: v1 can still move the proxy's assets</text>
+<rect x="770" y="20" width="155" height="380" rx="14" fill="#fff" stroke="#555" stroke-width="1.2"/>
+<circle cx="847" cy="72" r="37" fill="#cdeb8b" stroke="#6b8e23" stroke-width="1.5"/>
+<text x="847" y="77" font-size="13" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Capability</text>
+<circle cx="847" cy="150" r="37" fill="#e4e4e4" stroke="#9a9a9a" stroke-width="1.5"/>
+<text x="847" y="155" font-size="13" text-anchor="middle" fill="#666" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Retired</text>
+<polygon points="800,197 874,197 874,188 896,210 874,232 874,223 800,223" fill="#fff36b" stroke="#b8a600" stroke-width="1.5"/>
+<text x="837.0" y="214" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Call</text>
+<path d="M 795,260 L 900,260" fill="none" stroke="#000" stroke-width="1.4" marker-end="url(#arrow)"/>
+<text x="847" y="278" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Reference</text>
+<path d="M 795,305 L 900,305" fill="none" stroke="#000" stroke-width="1.4" stroke-dasharray="6,5" marker-end="url(#arrow)"/>
+<text x="847" y="323" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">During the call</text>
+<rect x="796" y="340" width="104" height="40" fill="#dbe7fb" stroke="#7a9fd8" stroke-width="1.5"/>
+<text x="848.0" y="365.0" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Data</text>
+</g>
+</svg>

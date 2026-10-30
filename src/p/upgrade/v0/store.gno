@@ -54,7 +54,7 @@ func (s *Store) Begin(_ int, rlm realm) *Tx {
 }
 
 // View returns a read-only handle on the store. Holding one grants no write
-// access, so it may be given to anyone.
+// access, so it may be given to anyone and retained across calls.
 func (s *Store) View() View {
 	return View{s: s}
 }

@@ -18,7 +18,9 @@ func main(cur realm) {
 	alice := testutils.TestAddress("alice")
 	pool := chain.PackageAddress("gno.land/r/upgrade/amm")
 	self := chain.PackageAddress("gno.land/r/demo/main")
-	v1.Activate(cross(cur))
+	testing.SetRealm(testing.NewUserRealm(amm.Admin0))
+	amm.Approve(cross(cur), "gno.land/r/upgrade/amm/v1")
+	v1.Bootstrap(cross(cur))
 
 	testing.SetRealm(testing.NewUserRealm(alice))
 	testtoken.Faucet(cross(cur), 1000)
@@ -57,5 +59,5 @@ func must(err error) {
 
 // Output:
 // reserves: 1000 1000 alice shares: 1000
-// amm: reentrant call
-// amm: reentrant call
+// upgrade: reentrant call
+// upgrade: reentrant call

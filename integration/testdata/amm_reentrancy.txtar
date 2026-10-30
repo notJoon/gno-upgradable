@@ -12,7 +12,9 @@ loadpkg gno.land/r/upgrade/amm/v1 $WORK/src/r/upgrade/amm/v1
 
 gnoland start
 
-gnokey maketx call -pkgpath gno.land/r/upgrade/amm/v1 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/upgrade/amm -func Approve -args gno.land/r/upgrade/amm/v1 -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stdout OK!
+gnokey maketx call -pkgpath gno.land/r/upgrade/amm/v1 -func Bootstrap -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
 gnokey maketx addpkg -pkgdir $WORK/v2 -pkgpath gno.land/r/upgrade/amm/v2 -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
@@ -29,7 +31,7 @@ stdout OK!
 gnokey maketx send -send 1ugnot -to $test1_user_addr -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
 ! gnokey maketx call -pkgpath gno.land/r/upgrade/amm/v2 -func Attack -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
-stderr 'amm: reentrant call'
+stderr 'upgrade: reentrant call'
 gnokey query vm/qeval --data 'gno.land/r/upgrade/amm.ImplPath()'
 stdout '"gno.land/r/upgrade/amm/v1"'
 
@@ -66,7 +68,7 @@ func Prepare(cur realm) {
 func Attack(cur realm) {
 	self := chain.PackageAddress("gno.land/r/upgrade/amm/v2")
 	activate := func(cur realm, _ int64, _ *proxy.CallbackMarker) {
-		proxy.Register(cross(cur), impl{})
+		proxy.Register(cross(cur))
 	}
 	proxy.Swap(cross(cur), true, 100, 1, self, activate)
 }

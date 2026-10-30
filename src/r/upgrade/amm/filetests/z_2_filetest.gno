@@ -20,7 +20,9 @@ func main(cur realm) {
 	alice := testutils.TestAddress("alice")
 	pool := chain.PackageAddress("gno.land/r/upgrade/amm")
 	self := chain.PackageAddress("gno.land/r/demo/main")
-	v1.Activate(cross(cur))
+	testing.SetRealm(testing.NewUserRealm(amm.Admin0))
+	amm.Approve(cross(cur), "gno.land/r/upgrade/amm/v1")
+	v1.Bootstrap(cross(cur))
 
 	testing.SetRealm(testing.NewUserRealm(alice))
 	testtoken.Faucet(cross(cur), 1000)
@@ -35,12 +37,12 @@ func main(cur realm) {
 	testing.SkipHeights(amm.UpgradeDelay)
 
 	activate := func(cur realm, _ int64, _ *amm.CallbackMarker) {
-		amm.Register(cross(cur), next{})
+		amm.Register(cross(cur))
 	}
 	println(revive(func() { amm.Swap(cross(cur), true, 100, 1, self, activate) }))
 	println("impl:", amm.ImplPath())
 }
 
 // Output:
-// amm: reentrant call
+// upgrade: reentrant call
 // impl: gno.land/r/upgrade/amm/v1

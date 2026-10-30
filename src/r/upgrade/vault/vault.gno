@@ -23,7 +23,7 @@ const Admin0 address = "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
 var proxy *upgrade.Proxy
 
 func init(cur realm) {
-	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay, "gno.land/r/upgrade/vault/v1")
+	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay)
 }
 
 // Approve lets pkgPath register after the delay. Unless it served before,
@@ -38,9 +38,13 @@ func Freeze(cur realm) { proxy.Freeze(0, cur) }
 
 func TransferAdmin(cur realm, newAdmin address) { proxy.TransferOwnership(0, cur, newAdmin) }
 
+func AcceptAdmin(cur realm) { proxy.AcceptOwnership(0, cur) }
+
 // Admin returns the address that approves upgrades. Implementations use it
 // to gate admin methods.
 func Admin() address { return proxy.Owner() }
+
+func PendingAdmin() address { return proxy.PendingOwner() }
 
 func Frozen() bool { return proxy.Frozen() }
 
@@ -50,9 +54,14 @@ func Prepare(cur realm, next upgrade.Impl) {
 	proxy.Prepare(0, cur, next)
 }
 
-// Register is called by the approved implementation realm to take over.
-func Register(cur realm, next upgrade.Impl) {
-	proxy.Register(0, cur, next)
+// Bootstrap installs the first approved implementation without a delay.
+func Bootstrap(cur realm, first upgrade.Impl) {
+	proxy.Bootstrap(0, cur, first)
+}
+
+// Register activates the implementation saved by Prepare.
+func Register(cur realm) {
+	proxy.Register(0, cur)
 }
 
 func Call(cur realm, method, args string) string {

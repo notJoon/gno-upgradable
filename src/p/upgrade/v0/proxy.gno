@@ -7,7 +7,10 @@ import (
 	"strings"
 )
 
-const ErrUnexpectedCoins = "upgrade: method did not take the coins sent with it"
+const (
+	ErrReentrant       = "upgrade: reentrant call"
+	ErrUnexpectedCoins = "upgrade: method did not take the coins sent with it"
+)
 
 // Impl is what an implementation realm provides. Its API is the proxy's
 // API: the proxy forwards every call by method name, so a later version can
@@ -83,38 +86,57 @@ type Impl interface {
 //     unsafe, so prefer adding a new table.
 //   - Coins stay at the proxy's address throughout.
 type Proxy struct {
-	u     *Upgrader
-	store *Store
-	impl  Impl
+	u       *Upgrader
+	store   *Store
+	impl    Impl
+	pending Impl
 
 	// calls and queries are the API: every method name any implementation
 	// has served. The proxy keeps them so that a rollback cannot shrink it.
 	calls, queries []string
 }
 
-// NewProxy returns a proxy held by the realm whose live cur is rlm, with
-// first approved as its first implementation. owner approves later
-// implementations, which wait delay blocks.
-func NewProxy(_ int, rlm realm, owner address, delay int64, first string) *Proxy {
-	p := &Proxy{u: New(0, rlm, owner, delay), store: NewStore(0, rlm)}
-	p.u.approve(first)
-	return p
+// NewProxy returns an empty proxy held by the realm whose live cur is rlm.
+// The owner must approve the first implementation after its realm is deployed;
+// later implementations wait delay blocks.
+func NewProxy(_ int, rlm realm, owner address, delay int64) *Proxy {
+	return &Proxy{u: New(0, rlm, owner, delay), store: NewStore(0, rlm)}
 }
 
-// Register makes next the implementation and runs its Migrate. rlm is the
-// proxy's live cur, so the caller must be the approved realm.
-//
-// Unless this is a rollback, next must answer the whole API. The check runs
-// before anything changes, so a refused next leaves the proxy as it was.
-func (p *Proxy) Register(_ int, rlm realm, next Impl) {
+// Bootstrap installs the first implementation without a delay. rlm is the
+// proxy's live cur, so the caller must be the first approved realm.
+func (p *Proxy) Bootstrap(_ int, rlm realm, first Impl) {
+	if p.impl != nil {
+		panic("upgrade: implementation already registered")
+	}
 	p.u.assertAcceptable(0, rlm)
-	p.assertAPI(next)
+	p.assertAPI(first)
+	p.install(0, rlm, first)
+}
+
+// Register installs the implementation saved by Prepare and runs its Migrate.
+// rlm is the proxy's live cur, so the caller must be the approved realm.
+//
+// Unless this is a rollback, the pending implementation must answer the whole
+// API. The check runs before anything changes.
+func (p *Proxy) Register(_ int, rlm realm) {
+	p.u.assertAcceptable(0, rlm)
+	if p.pending == nil {
+		panic("upgrade: no prepared implementation")
+	}
+	p.assertAPI(p.pending)
+	p.install(0, rlm, p.pending)
+}
+
+func (p *Proxy) install(_ int, rlm realm, next Impl) {
 	from := p.u.PkgPath()
 	p.u.Accept(0, rlm)
-	p.impl = next
+	p.impl, p.pending = next, nil
 	calls, queries := next.Methods()
 	p.calls, p.queries = union(p.calls, calls), union(p.queries, queries)
-	next.Migrate(p.store.Begin(0, rlm), NewCustody(0, rlm), from)
+	c := NewCustody(0, rlm)
+	next.Migrate(p.store.Begin(0, rlm), c, from)
+	c.revokeApprovals()
 }
 
 // Prepare starts the delay of the pending approval. rlm is the proxy's live
@@ -125,6 +147,7 @@ func (p *Proxy) Prepare(_ int, rlm realm, next Impl) {
 	p.u.assertPreparable(0, rlm)
 	p.assertAPI(next)
 	p.u.Prepare(0, rlm)
+	p.pending = next
 }
 
 // assertAPI panics unless next answers the whole API or this is a rollback.
@@ -163,7 +186,9 @@ func (p *Proxy) Call(_ int, rlm realm, method, args string) (out string) {
 // fn must come from the proxy realm itself, never from a caller.
 func (p *Proxy) Invoke(_ int, rlm realm, fn func(impl Impl, tx *Tx, c *Custody)) {
 	tx := p.store.Begin(0, rlm)
-	fn(p.current(), tx, NewCustody(0, rlm))
+	c := NewCustody(0, rlm)
+	fn(p.current(), tx, c)
+	c.revokeApprovals()
 	if !tx.sentTaken {
 		for _, coin := range tx.sent() {
 			if coin.Amount != 0 {
@@ -173,10 +198,10 @@ func (p *Proxy) Invoke(_ int, rlm realm, fn func(impl Impl, tx *Tx, c *Custody))
 	}
 }
 
-// Current returns the implementation and a read handle, for typed read
-// functions.
-func (p *Proxy) Current() (Impl, View) {
-	return p.current(), p.store.View()
+// Inspect runs fn with the current implementation and a read handle so a typed
+// proxy entry point can keep its reentrancy guard around the whole read.
+func (p *Proxy) Inspect(fn func(impl Impl, v View)) {
+	fn(p.current(), p.store.View())
 }
 
 func (p *Proxy) Query(method, args string) string {
@@ -233,18 +258,32 @@ func (p *Proxy) Missing(next Impl) (calls, queries []string) {
 // live cur and check its caller is the owner, so the realm forwards them
 // as is, with no check of its own. See Upgrader for why the check is here.
 // The realm must pass its own cur, not cur.Previous(), or the check fails.
-func (p *Proxy) Approve(_ int, rlm realm, pkgPath string) { p.u.Approve(0, rlm, pkgPath) }
-func (p *Proxy) Cancel(_ int, rlm realm)                  { p.u.Cancel(0, rlm) }
-func (p *Proxy) Freeze(_ int, rlm realm)                  { p.u.Freeze(0, rlm) }
+func (p *Proxy) Approve(_ int, rlm realm, pkgPath string) {
+	p.u.Approve(0, rlm, pkgPath)
+	p.pending = nil
+}
+
+func (p *Proxy) Cancel(_ int, rlm realm) {
+	p.u.Cancel(0, rlm)
+	p.pending = nil
+}
+
+func (p *Proxy) Freeze(_ int, rlm realm) {
+	p.u.Freeze(0, rlm)
+	p.pending = nil
+}
+
 func (p *Proxy) TransferOwnership(_ int, rlm realm, next address) {
 	p.u.TransferOwnership(0, rlm, next)
 }
+func (p *Proxy) AcceptOwnership(_ int, rlm realm) { p.u.AcceptOwnership(0, rlm) }
 
-func (p *Proxy) Owner() address   { return p.u.Owner() }
-func (p *Proxy) Frozen() bool     { return p.u.Frozen() }
-func (p *Proxy) ImplPath() string { return p.u.PkgPath() }
-func (p *Proxy) Approved() string { return p.u.Approved() }
-func (p *Proxy) ETA() int64       { return p.u.ETA() }
+func (p *Proxy) Owner() address        { return p.u.Owner() }
+func (p *Proxy) PendingOwner() address { return p.u.PendingOwner() }
+func (p *Proxy) Frozen() bool          { return p.u.Frozen() }
+func (p *Proxy) ImplPath() string      { return p.u.PkgPath() }
+func (p *Proxy) Approved() string      { return p.u.Approved() }
+func (p *Proxy) ETA() int64            { return p.u.ETA() }
 
 func (p *Proxy) current() Impl {
 	if p.impl == nil {

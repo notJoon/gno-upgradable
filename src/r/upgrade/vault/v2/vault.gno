@@ -24,7 +24,7 @@ func Prepare(cur realm) {
 // Activate makes v2 the vault's implementation. It succeeds only
 // while the vault has approved this realm.
 func Activate(cur realm) {
-	proxy.Register(cross(cur), impl{})
+	proxy.Register(cross(cur))
 }
 
 // impl inherits every method it does not handle from v1, including

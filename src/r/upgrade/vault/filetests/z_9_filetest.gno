@@ -25,7 +25,9 @@ func approve(cur realm, path string) {
 }
 
 func main(cur realm) {
-	v1.Activate(cross(cur))
+	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
+	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
+	v1.Bootstrap(cross(cur))
 
 	approve(cur, "gno.land/r/upgrade/vault/v2")
 	v2.Prepare(cross(cur))
@@ -36,7 +38,7 @@ func main(cur realm) {
 	testing.SetRealm(testing.NewCodeRealm("gno.land/r/demo/main"))
 	vault.Prepare(cross(cur), v3{})
 	testing.SkipHeights(vault.UpgradeDelay)
-	vault.Register(cross(cur), v3{})
+	vault.Register(cross(cur))
 	println("impl:", vault.ImplPath())
 
 	approve(cur, "gno.land/r/upgrade/vault/v2")

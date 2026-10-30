@@ -22,7 +22,9 @@ func (noWithdraw) Methods() (calls, queries []string) {
 }
 
 func main(cur realm) {
-	v1.Activate(cross(cur))
+	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
+	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
+	v1.Bootstrap(cross(cur))
 
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v2")
