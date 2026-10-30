@@ -30,6 +30,10 @@ func main(cur realm) {
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v2")
 	v2.Prepare(cross(cur))
+	alice := testutils.TestAddress("alice")
+	vault.TransferAdmin(cross(cur), alice)
+	testing.SetRealm(testing.NewUserRealm(alice))
+	vault.AcceptAdmin(cross(cur))
 }
 
 // Events:
@@ -132,6 +136,42 @@ func main(cur realm) {
 //       {
 //         "key": "eta",
 //         "value": "17403"
+//       }
+//     ],
+//     "pkg_path": "gno.land/p/upgrade/v0"
+//   },
+//   {
+//     "type": "OwnershipTransferStarted",
+//     "attrs": [
+//       {
+//         "key": "realm",
+//         "value": "gno.land/r/upgrade/vault"
+//       },
+//       {
+//         "key": "from",
+//         "value": "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
+//       },
+//       {
+//         "key": "to",
+//         "value": "g1v9kxjcm9ta047h6lta047h6lta047h6lzd40gh"
+//       }
+//     ],
+//     "pkg_path": "gno.land/p/upgrade/v0"
+//   },
+//   {
+//     "type": "OwnershipTransferred",
+//     "attrs": [
+//       {
+//         "key": "realm",
+//         "value": "gno.land/r/upgrade/vault"
+//       },
+//       {
+//         "key": "from",
+//         "value": "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
+//       },
+//       {
+//         "key": "to",
+//         "value": "g1v9kxjcm9ta047h6lta047h6lta047h6lzd40gh"
 //       }
 //     ],
 //     "pkg_path": "gno.land/p/upgrade/v0"
