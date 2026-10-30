@@ -16,7 +16,13 @@ import (
 // proxy's tokens after being replaced. Custody builds one per call and
 // drops it.
 type Custody struct {
-	rlm realm
+	rlm       realm
+	approvals []approval
+}
+
+type approval struct {
+	tok     *grc20.Token
+	spender address
 }
 
 // NewCustody returns a Custody over the assets of the realm whose live cur
@@ -53,6 +59,22 @@ func (c *Custody) Transfer(tok *grc20.Token, to address, amount int64) {
 func (c *Custody) TransferFrom(tok *grc20.Token, owner, to address, amount int64) {
 	c.assertLive()
 	must(tok.RealmTeller(0, c.rlm).TransferFrom(0, c.rlm, owner, to, amount))
+}
+
+// ApproveForCall lets spender take up to amount of tok until the current proxy
+// call returns. The proxy clears the allowance before the call can commit.
+func (c *Custody) ApproveForCall(tok *grc20.Token, spender address, amount int64) {
+	c.assertLive()
+	must(tok.RealmTeller(0, c.rlm).Approve(0, c.rlm, spender, amount))
+	c.approvals = append(c.approvals, approval{tok: tok, spender: spender})
+}
+
+func (c *Custody) revokeApprovals() {
+	c.assertLive()
+	for _, a := range c.approvals {
+		must(a.tok.RealmTeller(0, c.rlm).Approve(0, c.rlm, a.spender, 0))
+	}
+	c.approvals = nil
 }
 
 func (c *Custody) assertLive() {
