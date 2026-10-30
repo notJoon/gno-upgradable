@@ -69,7 +69,7 @@ func (c *Custody) ApproveForCall(tok *grc20.Token, spender address, amount int64
 	c.approvals = append(c.approvals, approval{tok: tok, spender: spender})
 }
 
-func (c *Custody) close() {
+func (c *Custody) revokeApprovals() {
 	c.assertLive()
 	for _, a := range c.approvals {
 		must(a.tok.RealmTeller(0, c.rlm).Approve(0, c.rlm, a.spender, 0))
