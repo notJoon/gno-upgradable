@@ -54,7 +54,7 @@ func main(cur realm) {
 //         "value": "123"
 //       },
 //       {
-//         "key": "rollback",
+//         "key": "rollbackCandidate",
 //         "value": "false"
 //       }
 //     ],
@@ -124,7 +124,7 @@ func main(cur realm) {
 //         "value": "0"
 //       },
 //       {
-//         "key": "rollback",
+//         "key": "rollbackCandidate",
 //         "value": "false"
 //       }
 //     ],
@@ -152,6 +152,10 @@ func main(cur realm) {
 //       {
 //         "key": "manifestHash",
 //         "value": "40cbdd911e898cb6d68914e6620c697becaeb64173f39ced79336301bce4be3e"
+//       },
+//       {
+//         "key": "rollback",
+//         "value": "false"
 //       }
 //     ],
 //     "pkg_path": "gno.land/p/upgrade/v0"

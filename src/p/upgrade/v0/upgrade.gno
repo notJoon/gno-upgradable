@@ -78,7 +78,8 @@ func New(_ int, rlm realm, owner address, delay int64) *Upgrader {
 // replacing any pending approval. rlm is the holding realm's live cur, and
 // its caller must be the owner.
 //
-// Approving a path that has been the implementation before is a rollback.
+// Approving a path that has been the implementation before is a rollback
+// candidate. Proxy also matches the implementation ID and manifest hash.
 // See IsRollback.
 func (u *Upgrader) Approve(_ int, rlm realm, pkgPath string) {
 	u.assertOwner(0, rlm)
@@ -121,7 +122,7 @@ func (u *Upgrader) approve(pkgPath string) {
 		u.eta = runtime.ChainHeight()
 	}
 	u.emit("UpgradeApproved", "pkgPath", pkgPath,
-		"eta", strconv.FormatInt(u.eta, 10), "rollback", strconv.FormatBool(u.IsRollback()))
+		"eta", strconv.FormatInt(u.eta, 10), "rollbackCandidate", strconv.FormatBool(u.IsRollback()))
 }
 
 // Cancel drops the pending approval, if any. Owner only.

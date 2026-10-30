@@ -74,8 +74,9 @@ type Renderer interface {
 }
 
 type servedImplementation struct {
-	path string
-	id   string
+	path         string
+	id           string
+	manifestHash string
 }
 
 // Proxy is the state of an upgradable realm: who may become its
@@ -117,7 +118,9 @@ type Proxy struct {
 
 	// calls and queries are the API: every method name any implementation
 	// has served. The proxy keeps them so that a rollback cannot shrink it.
-	calls, queries []Method
+	calls, queries               []Method
+	currentCalls, currentQueries []Method
+	pendingCalls, pendingQueries []Method
 
 	implID, pendingID                 string
 	manifestHash, pendingManifestHash string
@@ -138,9 +141,9 @@ func (p *Proxy) Bootstrap(_ int, rlm realm, first Impl) {
 		panic("upgrade: implementation already registered")
 	}
 	p.u.assertAcceptable(0, rlm)
-	id, hash := inspectImpl(first)
-	p.assertAPI(first, id)
-	p.install(0, rlm, first, id, hash)
+	id, hash, calls, queries := inspectImpl(first)
+	p.assertAPI(first, id, hash, calls, queries)
+	p.install(0, rlm, first, id, hash, calls, queries)
 }
 
 // Register installs the implementation saved by Prepare and runs its Migrate.
@@ -153,28 +156,27 @@ func (p *Proxy) Register(_ int, rlm realm) {
 	if p.pending == nil {
 		panic("upgrade: no prepared implementation")
 	}
-	id, hash := inspectImpl(p.pending)
+	id, hash, _, _ := inspectImpl(p.pending)
 	if id != p.pendingID || hash != p.pendingManifestHash {
 		panic("upgrade: prepared implementation changed")
 	}
-	p.assertAPI(p.pending, id)
-	p.install(0, rlm, p.pending, id, hash)
+	p.assertAPI(p.pending, id, hash, p.pendingCalls, p.pendingQueries)
+	p.install(0, rlm, p.pending, id, hash, p.pendingCalls, p.pendingQueries)
 }
 
-func (p *Proxy) install(_ int, rlm realm, next Impl, id, hash string) {
+func (p *Proxy) install(_ int, rlm realm, next Impl, id, hash string, calls, queries []Method) {
 	from := p.u.PkgPath()
 	path := p.u.Approved()
-	rollback := p.isRollback(path, id)
+	rollback := p.isRollback(path, id, hash)
 	p.u.accept(0, rlm, rollback, "implementation", id, "manifestHash", hash)
 	p.impl, p.pending = next, nil
 	p.implID, p.pendingID = id, ""
 	p.manifestHash, p.pendingManifestHash = hash, ""
-	if next, ok := next.(Dispatcher); ok {
-		calls, queries := next.Methods()
-		p.calls, p.queries = union(p.calls, calls), union(p.queries, queries)
-	}
+	p.currentCalls, p.currentQueries = calls, queries
+	p.pendingCalls, p.pendingQueries = nil, nil
+	p.calls, p.queries = union(p.calls, calls), union(p.queries, queries)
 	if !rollback {
-		p.served = append(p.served, servedImplementation{path: path, id: id})
+		p.served = append(p.served, servedImplementation{path: path, id: id, manifestHash: hash})
 	}
 	c := NewCustody(0, rlm)
 	next.Migrate(p.store.Begin(0, rlm), c, from)
@@ -187,29 +189,31 @@ func (p *Proxy) install(_ int, rlm realm, next Impl, id, hash string) {
 // rather than once the delay has passed.
 func (p *Proxy) Prepare(_ int, rlm realm, next Impl) {
 	p.u.assertPreparable(0, rlm)
-	id, hash := inspectImpl(next)
-	p.assertAPI(next, id)
-	p.u.prepare(0, rlm, "implementation", id, "manifestHash", hash)
+	id, hash, calls, queries := inspectImpl(next)
+	rollback := p.isRollback(p.u.Approved(), id, hash)
+	p.assertAPI(next, id, hash, calls, queries)
+	p.u.prepare(0, rlm, "implementation", id, "manifestHash", hash, "rollback", strconv.FormatBool(rollback))
 	p.pending = next
 	p.pendingID, p.pendingManifestHash = id, hash
+	p.pendingCalls, p.pendingQueries = calls, queries
 }
 
 // assertAPI panics unless next answers the whole API or this is a rollback.
-func (p *Proxy) assertAPI(next Impl, id string) {
+func (p *Proxy) assertAPI(next Impl, id, hash string, nextCalls, nextQueries []Method) {
 	if next == nil {
 		panic("upgrade: nil implementation")
 	}
-	if p.isRollback(p.u.Approved(), id) {
+	if p.isRollback(p.u.Approved(), id, hash) {
 		return
 	}
-	nextDispatcher, ok := next.(Dispatcher)
+	_, ok := next.(Dispatcher)
 	if !ok {
 		if len(p.calls)+len(p.queries) == 0 {
 			return
 		}
 		panic("upgrade: next implementation is not a dispatcher")
 	}
-	calls, queries := p.Missing(nextDispatcher)
+	calls, queries := minus(p.calls, nextCalls), minus(p.queries, nextQueries)
 	if len(calls)+len(queries) > 0 {
 		panic("upgrade: next implementation lacks API methods: " +
 			describe(calls, queries) + "; to retire one, keep it and make it panic")
@@ -218,13 +222,8 @@ func (p *Proxy) assertAPI(next Impl, id string) {
 
 // Call forwards a crossing call to the implementation by method name.
 func (p *Proxy) Call(_ int, rlm realm, method, args string) (out string) {
-	impl := p.current()
-	dispatcher, ok := impl.(Dispatcher)
-	var calls []Method
-	if ok {
-		calls, _ = dispatcher.Methods()
-	}
-	assertAnswers(method, calls, p.calls)
+	p.current()
+	assertAnswers(method, p.currentCalls, p.calls)
 	p.Invoke(0, rlm, func(impl Impl, tx *Tx, c *Custody) {
 		out = impl.(Dispatcher).Call(tx, c, method, args)
 	})
@@ -262,12 +261,8 @@ func (p *Proxy) Inspect(fn func(impl Impl, v View)) {
 
 func (p *Proxy) Query(method, args string) string {
 	impl := p.current()
-	dispatcher, ok := impl.(Dispatcher)
-	var queries []Method
-	if ok {
-		_, queries = dispatcher.Methods()
-	}
-	assertAnswers(method, queries, p.queries)
+	dispatcher := impl.(Dispatcher)
+	assertAnswers(method, p.currentQueries, p.queries)
 	return dispatcher.Query(p.store.View(), method, args)
 }
 
@@ -292,7 +287,7 @@ func (p *Proxy) banner() string {
 		return ""
 	}
 	kind := "Upgrade"
-	if (u.prepared && p.isRollback(u.approved, p.pendingID)) || (!u.prepared && u.IsRollback()) {
+	if u.prepared && p.isRollback(u.approved, p.pendingID, p.pendingManifestHash) {
 		kind = "Rollback"
 	}
 	if !u.prepared {
@@ -306,11 +301,8 @@ func (p *Proxy) banner() string {
 // Methods returns the method descriptors the current implementation answers
 // through Call and Query. After a rollback it can be smaller than API.
 func (p *Proxy) Methods() (calls, queries []Method) {
-	dispatcher, ok := p.current().(Dispatcher)
-	if !ok {
-		return nil, nil
-	}
-	return dispatcher.Methods()
+	p.current()
+	return p.currentCalls, p.currentQueries
 }
 
 // API returns every method descriptor any implementation has served.
@@ -332,20 +324,17 @@ func (p *Proxy) Missing(next Dispatcher) (calls, queries []Method) {
 // The realm must pass its own cur, not cur.Previous(), or the check fails.
 func (p *Proxy) Approve(_ int, rlm realm, pkgPath string) {
 	p.u.Approve(0, rlm, pkgPath)
-	p.pending = nil
-	p.pendingID, p.pendingManifestHash = "", ""
+	p.clearPending()
 }
 
 func (p *Proxy) Cancel(_ int, rlm realm) {
 	p.u.Cancel(0, rlm)
-	p.pending = nil
-	p.pendingID, p.pendingManifestHash = "", ""
+	p.clearPending()
 }
 
 func (p *Proxy) Freeze(_ int, rlm realm) {
 	p.u.Freeze(0, rlm)
-	p.pending = nil
-	p.pendingID, p.pendingManifestHash = "", ""
+	p.clearPending()
 }
 
 func (p *Proxy) TransferOwnership(_ int, rlm realm, next address) {
@@ -371,9 +360,15 @@ func (p *Proxy) current() Impl {
 	return p.impl
 }
 
-func (p *Proxy) isRollback(path, id string) bool {
+func (p *Proxy) clearPending() {
+	p.pending = nil
+	p.pendingID, p.pendingManifestHash = "", ""
+	p.pendingCalls, p.pendingQueries = nil, nil
+}
+
+func (p *Proxy) isRollback(path, id, hash string) bool {
 	for _, served := range p.served {
-		if served.path == path && served.id == id {
+		if served.path == path && served.id == id && served.manifestHash == hash {
 			return true
 		}
 	}
@@ -451,7 +446,7 @@ func containsName(list []Method, name string) bool {
 	return false
 }
 
-func inspectImpl(impl Impl) (id, hash string) {
+func inspectImpl(impl Impl) (id, hash string, calls, queries []Method) {
 	if impl == nil {
 		panic("upgrade: nil implementation")
 	}
@@ -466,8 +461,9 @@ func inspectImpl(impl Impl) (id, hash string) {
 	}
 	manifest := ""
 	if dispatcher, ok := impl.(Dispatcher); ok {
-		calls, queries := dispatcher.Methods()
+		calls, queries = dispatcher.Methods()
 		validateMethods(calls, queries)
+		calls, queries = cloneMethods(calls), cloneMethods(queries)
 		manifest += ";dispatcher=1"
 		for _, method := range calls {
 			manifest += ";call=" + encodeMethod(method)
@@ -484,7 +480,12 @@ func inspectImpl(impl Impl) (id, hash string) {
 		manifest += ";renderer=0"
 	}
 	sum := sha256.Sum256([]byte(manifest))
-	return id, hex.EncodeToString(sum[:])
+	return id, hex.EncodeToString(sum[:]), calls, queries
+}
+
+func cloneMethods(methods []Method) []Method {
+	var cloned []Method
+	return append(cloned, methods...)
 }
 
 func validateMethods(calls, queries []Method) {

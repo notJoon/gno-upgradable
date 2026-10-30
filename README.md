@@ -115,10 +115,11 @@ so keep it to what must be typed. If it makes callbacks, guard every entry point
 that can observe inconsistent application state or replace the implementation,
 as the AMM does.
 
-`Prepare` records the implementation ID and a SHA-256 fingerprint of its
-dispatcher manifest and optional renderer capability. `Register` refuses the
-activation if either changed during the delay. Proxies can expose `ImplID`,
-`PendingImplID`, `ManifestHash`, and `PendingManifestHash` for monitoring.
+`Prepare` snapshots the dispatcher manifest and records the implementation ID
+and a SHA-256 fingerprint of its optional capabilities. Calls route through
+that snapshot, and `Register` refuses activation if the ID or fingerprint
+changed during the delay. Proxies can expose `ImplID`, `PendingImplID`,
+`ManifestHash`, and `PendingManifestHash` for monitoring.
 
 ## Upgrade lifecycle
 
@@ -234,11 +235,14 @@ In particular:
 - Keep retired method names and return a clear panic. Only a rollback may
   temporarily leave a previously served method unavailable.
 
-Every upgrade event includes the proxy realm in a `realm` attribute.
-`UpgradePrepared` and `Upgraded` also include the concrete implementation ID
-and manifest hash. `Render` prepends a pending-upgrade, rollback, or freeze
-banner that implementations cannot hide. Production monitoring should consume
-the events rather than rely on users opening the rendered page.
+Every upgrade event includes the proxy realm in a `realm` attribute. For a
+Proxy-driven upgrade, `UpgradePrepared` and `Upgraded` also include the concrete
+implementation ID and manifest hash. Before `Prepare`, `UpgradeApproved` can
+only report whether the realm path is a `rollbackCandidate`; the exact rollback
+classification uses the path, ID, and manifest hash together. `Render` prepends
+a pending-upgrade, rollback, or freeze banner that implementations cannot hide.
+Production monitoring should consume the events rather than rely on users
+opening the rendered page.
 
 ## Development
 

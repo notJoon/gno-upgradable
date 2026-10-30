@@ -81,6 +81,11 @@ type noFees struct{ v1.Impl }
 
 func (noFees) ID() string { return "gno.land/r/demo/main:no-fees" }
 
+// reusedID tries to claim noFees' rollback identity with a different manifest.
+type reusedID struct{ noWithdraw }
+
+func (reusedID) ID() string { return "gno.land/r/demo/main:no-fees" }
+
 func main(cur realm) {
 	alice := testutils.TestAddress("alice")
 	self := testing.NewCodeRealm("gno.land/r/demo/main")
@@ -103,6 +108,7 @@ func main(cur realm) {
 	// Register activates the exact implementation saved by Prepare.
 	approve(cur, "gno.land/r/demo/main")
 	testing.SetRealm(self)
+	println(revive(func() { vault.Prepare(cross(cur), changedSchema{}) }))
 	vault.Prepare(cross(cur), noFees{})
 	println("pending identity:", vault.PendingImplID(), vault.PendingManifestHash() != "")
 	testing.SkipHeights(vault.UpgradeDelay)
@@ -127,7 +133,7 @@ func main(cur realm) {
 	testing.SetRealm(self)
 	// A realm path that served before gets the rollback exception only for
 	// the same implementation ID.
-	println(revive(func() { vault.Prepare(cross(cur), noWithdraw{}) }))
+	println(revive(func() { vault.Prepare(cross(cur), reusedID{}) }))
 	vault.Prepare(cross(cur), retired{})
 	testing.SkipHeights(vault.UpgradeDelay)
 	// Retiring keeps the name and fails with a reason.
@@ -145,6 +151,7 @@ func main(cur realm) {
 // slice[(struct{("Withdraw" string),("v1:int64->void" string)} gno.land/p/upgrade/v0.Method)] (nil []gno.land/p/upgrade/v0.Method)
 // (nil []gno.land/p/upgrade/v0.Method) slice[(struct{("BalanceOf" string),("v1:address->int64" string)} gno.land/p/upgrade/v0.Method)]
 // slice[(struct{("Withdraw" string),("v1:int64->void" string)} gno.land/p/upgrade/v0.Method)] (nil []gno.land/p/upgrade/v0.Method)
+// upgrade: next implementation lacks API methods: Call Withdraw [v1:int64->void]; to retire one, keep it and make it panic
 // pending identity: gno.land/r/demo/main:no-fees true
 // impl: gno.land/r/demo/main
 // impl: gno.land/r/upgrade/vault/v1
