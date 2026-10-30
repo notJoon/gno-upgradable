@@ -38,6 +38,36 @@ the same delayed lifecycle applied to a previously served implementation.
 Ownership transfer completes only after the nominated address calls
 `AcceptOwnership` through the proxy's corresponding forwarding function.
 
+## Why object capabilities
+
+A public realm cannot be deleted, so a replaced implementation stays callable
+forever. The design question is therefore not only who may call the proxy, but
+what an implementation can still do after it has been replaced.
+
+In Gno, a live `cur` is authority, and some things built from it outlive the
+call: a `RealmSend` banker, a GRC20 `RealmTeller` bound to the proxy's address,
+and a pointer into the proxy's state. An implementation given the proxy's `cur`
+or its raw tables could keep any of these and use them after an upgrade. An
+allowlist of retired implementations would make revocation depend on keeping
+that list correct.
+
+The pattern instead hands authority to implementations as objects scoped to one
+call:
+
+- `Tx` and `Custody` hold the proxy's `cur` privately. Gno refuses to persist a
+  realm value, so storing either handle aborts the transaction, and their
+  methods reject use after the call. Revocation needs no bookkeeping: an
+  implementation the proxy no longer calls has nothing left to use.
+- Each handle grants only what it names. `View` reads, `Tx` writes the proxy's
+  tables, and `Custody` moves assets without returning the banker or teller it
+  builds.
+- Handles cannot be forged. Opening one over the proxy requires the proxy's
+  live `cur`, and a zero value declared elsewhere has no realm and refuses
+  every call.
+
+This limits what a replaced implementation can do. It does not limit an
+approved implementation while it runs, as the next section explains.
+
 ## Security model
 
 The proxy owns all persistent authority. Implementations receive a `Tx` and a
