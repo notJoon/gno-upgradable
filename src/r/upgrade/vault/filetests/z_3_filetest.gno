@@ -18,6 +18,8 @@ func main(cur realm) {
 	bob := testutils.TestAddress("bob")
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	println(revive(func() { vault.Freeze(cross(cur)) }))
+	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
+	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
 	v1.Bootstrap(cross(cur))
 
 	testing.SetRealm(testing.NewUserRealm(alice))

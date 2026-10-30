@@ -47,7 +47,7 @@ var (
 )
 
 func init(cur realm) {
-	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay, "gno.land/r/upgrade/amm/v1")
+	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay)
 }
 
 // Prepare is called by the approved implementation realm to start the

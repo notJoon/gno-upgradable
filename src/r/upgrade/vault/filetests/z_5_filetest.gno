@@ -55,6 +55,8 @@ type noFees struct{ v1.Impl }
 func main(cur realm) {
 	alice := testutils.TestAddress("alice")
 	self := testing.NewCodeRealm("gno.land/r/demo/main")
+	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
+	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
 	v1.Bootstrap(cross(cur))
 	println(vault.Methods())
 

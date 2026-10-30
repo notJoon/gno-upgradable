@@ -16,10 +16,10 @@ liquidity and arithmetic rules are deliberately simplified.
 
 ## Upgrade lifecycle
 
-1. The proxy creates `upgrade.Proxy` with an owner, a delay in blocks, and the
-   first implementation path.
-2. The first implementation calls `Bootstrap` with its fixed implementation
-   value. It has no delay because there is no live code to protect yet.
+1. The proxy creates an empty `upgrade.Proxy` with an owner and delay.
+2. After the first implementation realm is deployed, the owner approves its
+   path and it calls `Bootstrap` with its fixed implementation value. It has no
+   delay because there is no live code to protect yet.
 3. The owner deploys and approves the next implementation realm.
 4. The approved realm calls `Prepare`. This checks the grow-only method API and
    starts the full delay only after the code exists on-chain.

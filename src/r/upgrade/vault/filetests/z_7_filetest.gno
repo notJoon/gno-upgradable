@@ -17,6 +17,8 @@ import (
 )
 
 func main(cur realm) {
+	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
+	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
 	v1.Bootstrap(cross(cur))
 
 	testing.IssueCoins(chain.PackageAddress("gno.land/r/upgrade/vault"), chain.Coins{{"ugnot", 100}})
@@ -32,6 +34,28 @@ func main(cur realm) {
 
 // Events:
 // [
+//   {
+//     "type": "UpgradeApproved",
+//     "attrs": [
+//       {
+//         "key": "realm",
+//         "value": "gno.land/r/upgrade/vault"
+//       },
+//       {
+//         "key": "pkgPath",
+//         "value": "gno.land/r/upgrade/vault/v1"
+//       },
+//       {
+//         "key": "eta",
+//         "value": "123"
+//       },
+//       {
+//         "key": "rollback",
+//         "value": "false"
+//       }
+//     ],
+//     "pkg_path": "gno.land/p/upgrade/v0"
+//   },
 //   {
 //     "type": "Upgraded",
 //     "attrs": [

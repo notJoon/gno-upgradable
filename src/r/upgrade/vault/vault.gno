@@ -23,7 +23,7 @@ const Admin0 address = "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
 var proxy *upgrade.Proxy
 
 func init(cur realm) {
-	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay, "gno.land/r/upgrade/vault/v1")
+	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay)
 }
 
 // Approve lets pkgPath register after the delay. Unless it served before,

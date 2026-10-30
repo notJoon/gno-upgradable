@@ -23,6 +23,8 @@ func main(cur realm) {
 
 	// Only the approved realm can register, not whoever calls Register.
 	println(revive(func() { vault.Register(cross(cur)) }))
+	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
+	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
 	v1.Bootstrap(cross(cur))
 
 	// Only the admin can approve.

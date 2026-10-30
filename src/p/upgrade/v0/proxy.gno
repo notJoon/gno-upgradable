@@ -96,13 +96,11 @@ type Proxy struct {
 	calls, queries []string
 }
 
-// NewProxy returns a proxy held by the realm whose live cur is rlm, with
-// first approved as its first implementation. owner approves later
-// implementations, which wait delay blocks.
-func NewProxy(_ int, rlm realm, owner address, delay int64, first string) *Proxy {
-	p := &Proxy{u: New(0, rlm, owner, delay), store: NewStore(0, rlm)}
-	p.u.approve(first)
-	return p
+// NewProxy returns an empty proxy held by the realm whose live cur is rlm.
+// The owner must approve the first implementation after its realm is deployed;
+// later implementations wait delay blocks.
+func NewProxy(_ int, rlm realm, owner address, delay int64) *Proxy {
+	return &Proxy{u: New(0, rlm, owner, delay), store: NewStore(0, rlm)}
 }
 
 // Bootstrap installs the first implementation without a delay. rlm is the

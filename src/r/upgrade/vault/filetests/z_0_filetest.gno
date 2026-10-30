@@ -23,6 +23,8 @@ func main(cur realm) {
 	vaultAddr := chain.PackageAddress("gno.land/r/upgrade/vault")
 	bnk := banker.NewReadonlyBanker()
 
+	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
+	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
 	v1.Bootstrap(cross(cur))
 	println("impl:", vault.ImplPath())
 
