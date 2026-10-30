@@ -16,7 +16,6 @@ import (
 // v3 answers the whole API v2 left.
 type v3 struct{ v1.Impl }
 
-func (v3) ID() string { return "gno.land/r/demo/main:v3" }
 
 func (v3) Methods() (calls, queries []upgrade.Method) {
 	return []upgrade.Method{
@@ -34,24 +33,24 @@ func approve(cur realm, path string) {
 func main(cur realm) {
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
-	v1.Bootstrap(cross(cur))
+	v1.Upgrade(cross(cur))
 
 	approve(cur, "gno.land/r/upgrade/vault/v2")
-	v2.Prepare(cross(cur))
+	v2.Upgrade(cross(cur))
 	testing.SkipHeights(vault.UpgradeDelay)
-	v2.Activate(cross(cur))
+	v2.Upgrade(cross(cur))
 
 	approve(cur, "gno.land/r/demo/main")
 	testing.SetRealm(testing.NewCodeRealm("gno.land/r/demo/main"))
-	vault.Prepare(cross(cur), v3{})
+	vault.Upgrade(cross(cur), v3{})
 	testing.SkipHeights(vault.UpgradeDelay)
-	vault.Register(cross(cur))
+	vault.Upgrade(cross(cur), v3{})
 	println("impl:", vault.ImplPath())
 
 	approve(cur, "gno.land/r/upgrade/vault/v2")
-	v2.Prepare(cross(cur))
+	v2.Upgrade(cross(cur))
 	testing.SkipHeights(vault.UpgradeDelay)
-	v2.Activate(cross(cur))
+	v2.Upgrade(cross(cur))
 	println("impl:", vault.ImplPath())
 }
 

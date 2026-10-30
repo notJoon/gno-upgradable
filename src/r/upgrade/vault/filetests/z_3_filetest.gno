@@ -20,7 +20,7 @@ func main(cur realm) {
 	println(revive(func() { vault.Freeze(cross(cur)) }))
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
-	v1.Bootstrap(cross(cur))
+	v1.Upgrade(cross(cur))
 
 	testing.SetRealm(testing.NewUserRealm(alice))
 	println(revive(func() { vault.Freeze(cross(cur)) }))
@@ -35,7 +35,7 @@ func main(cur realm) {
 
 	testing.SkipHeights(vault.UpgradeDelay)
 	testing.SetRealm(testing.NewCodeRealm("gno.land/r/demo/main"))
-	println(revive(func() { vault.Register(cross(cur)) }))
+	println(revive(func() { vault.Upgrade(cross(cur), nil) }))
 	println("impl:", vault.ImplPath())
 
 	// The admin role still moves, for implementations that gate on it.

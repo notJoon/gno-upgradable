@@ -62,7 +62,7 @@ tx() {
 tx maketx call -pkgpath gno.land/r/upgrade/vault -func Approve \
 	-args gno.land/r/upgrade/vault/v1 -gas-fee 1000000ugnot \
 	-gas-wanted 50000000 -broadcast -chainid dev test1 >/dev/null
-tx maketx call -pkgpath gno.land/r/upgrade/vault/v1 -func Bootstrap \
+tx maketx call -pkgpath gno.land/r/upgrade/vault/v1 -func Upgrade \
 	-gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid dev test1 >/dev/null
 tx maketx call -pkgpath gno.land/r/upgrade/vault -func Call -args Deposit -args '' \
 	-send 1000ugnot -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid dev test1 >/dev/null
@@ -73,11 +73,11 @@ tx maketx addpkg -pkgdir "$repo_dir/src/r/upgrade/vault/v2" \
 tx maketx call -pkgpath gno.land/r/upgrade/vault -func Approve \
 	-args gno.land/r/upgrade/vault/v2 -gas-fee 1000000ugnot \
 	-gas-wanted 50000000 -broadcast -chainid dev test1 >/dev/null
-tx maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Prepare \
+tx maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Upgrade \
 	-gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid dev test1 >/dev/null
 tx maketx send -send 1ugnot -to g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5 \
 	-gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid dev test1 >/dev/null
-tx maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Activate \
+tx maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Upgrade \
 	-gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid dev test1 >/dev/null
 
 gnokey query vm/qeval --data 'gno.land/r/upgrade/vault.ImplPath()' \

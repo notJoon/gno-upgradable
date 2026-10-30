@@ -22,7 +22,6 @@ type box struct{ N int64 }
 // sticky tries to keep a handle on a row it wrote.
 type sticky struct{ v1.Impl }
 
-func (sticky) ID() string { return "gno.land/r/demo/main:sticky-state" }
 
 func (sticky) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {
 	println("migrate from:", from)
@@ -37,12 +36,12 @@ func main(cur realm) {
 	alice := testutils.TestAddress("alice")
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
-	v1.Bootstrap(cross(cur))
+	v1.Upgrade(cross(cur))
 
 	testing.SetRealm(testing.NewUserRealm(admin))
 	vault.Approve(cross(cur), "gno.land/r/demo/main")
 	testing.SetRealm(testing.NewCodeRealm("gno.land/r/demo/main"))
-	vault.Prepare(cross(cur), sticky{})
+	vault.Upgrade(cross(cur), sticky{})
 	println("eta set:", vault.ApprovedETA() > 0)
 	testing.SetRealm(testing.NewUserRealm(admin))
 	vault.Cancel(cross(cur))
@@ -50,9 +49,9 @@ func main(cur realm) {
 
 	vault.Approve(cross(cur), "gno.land/r/demo/main")
 	testing.SetRealm(testing.NewCodeRealm("gno.land/r/demo/main"))
-	vault.Prepare(cross(cur), sticky{})
+	vault.Upgrade(cross(cur), sticky{})
 	testing.SkipHeights(vault.UpgradeDelay)
-	vault.Register(cross(cur))
+	vault.Upgrade(cross(cur), sticky{})
 
 	testing.SetRealm(testing.NewUserRealm(alice))
 	testing.SetOriginSend(chain.Coins{{"ugnot", 10}})

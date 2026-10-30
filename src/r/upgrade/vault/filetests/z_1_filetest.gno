@@ -21,11 +21,11 @@ func main(cur realm) {
 	// Nothing is registered before v1 activates.
 	println(revive(func() { vault.Query("BalanceOf", alice.String()) }))
 
-	// Only the approved realm can register, not whoever calls Register.
-	println(revive(func() { vault.Register(cross(cur)) }))
+	// Only the approved realm can upgrade, not whoever calls Upgrade.
+	println(revive(func() { vault.Upgrade(cross(cur), nil) }))
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
-	v1.Bootstrap(cross(cur))
+	v1.Upgrade(cross(cur))
 
 	// Only the admin can approve.
 	testing.SetRealm(testing.NewUserRealm(alice))

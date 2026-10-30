@@ -15,12 +15,11 @@ const (
 	all    = "all"
 )
 
-func Prepare(cur realm)  { proxy.Prepare(cross(cur), Impl{}) }
-func Activate(cur realm) { proxy.Register(cross(cur)) }
+func Upgrade(cur realm) { proxy.Upgrade(cross(cur), Impl{}) }
 
 type Impl struct{ v1.Impl }
 
-func (Impl) ID() string { return "gno.land/r/upgrade/counter/v2:impl" }
+var _ proxy.Counter = Impl{}
 
 func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {
 	var total int64

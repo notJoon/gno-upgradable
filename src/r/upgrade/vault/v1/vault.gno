@@ -18,24 +18,14 @@ import (
 
 const Balances = "balances" // address -> int64
 
-// Prepare starts the delay once the vault has approved this realm.
-func Prepare(cur realm) {
-	proxy.Prepare(cross(cur), Impl{})
-}
-
-// Bootstrap installs v1 as the vault's first implementation.
-func Bootstrap(cur realm) {
-	proxy.Bootstrap(cross(cur), Impl{})
-}
-
-// Activate restores v1 after it has prepared as a rollback.
-func Activate(cur realm) {
-	proxy.Register(cross(cur))
-}
+// Upgrade installs v1 once the vault has approved this realm: at once as
+// the first implementation, or in two calls around the delay, as when
+// rolling back to v1.
+func Upgrade(cur realm) { proxy.Upgrade(cross(cur), Impl{}) }
 
 type Impl struct{}
 
-func (Impl) ID() string { return "gno.land/r/upgrade/vault/v1:impl" }
+var _ proxy.Implementation = Impl{}
 
 func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {}
 

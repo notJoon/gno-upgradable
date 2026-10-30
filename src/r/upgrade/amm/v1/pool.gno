@@ -21,22 +21,12 @@ const (
 	Shares = "shares" // address -> int64
 )
 
-// Prepare starts the delay once the pool has approved this realm.
-func Prepare(cur realm) {
-	proxy.Prepare(cross(cur), Impl{})
-}
-
-func Bootstrap(cur realm) {
-	proxy.Bootstrap(cross(cur), Impl{})
-}
-
-func Activate(cur realm) {
-	proxy.Register(cross(cur))
-}
+// Upgrade installs v1 once the pool has approved this realm.
+func Upgrade(cur realm) { proxy.Upgrade(cross(cur), Impl{}) }
 
 type Impl struct{}
 
-func (Impl) ID() string { return "gno.land/r/upgrade/amm/v1:impl" }
+var _ proxy.Pool = Impl{}
 
 func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {}
 

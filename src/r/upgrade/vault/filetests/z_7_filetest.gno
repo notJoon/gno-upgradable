@@ -19,7 +19,7 @@ import (
 func main(cur realm) {
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
-	v1.Bootstrap(cross(cur))
+	v1.Upgrade(cross(cur))
 
 	testing.IssueCoins(chain.PackageAddress("gno.land/r/upgrade/vault"), chain.Coins{{"ugnot", 100}})
 	testing.SetOriginSend(chain.Coins{{"ugnot", 100}})
@@ -29,7 +29,7 @@ func main(cur realm) {
 
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v2")
-	v2.Prepare(cross(cur))
+	v2.Upgrade(cross(cur))
 	alice := testutils.TestAddress("alice")
 	vault.TransferAdmin(cross(cur), alice)
 	testing.SetRealm(testing.NewUserRealm(alice))
@@ -52,10 +52,6 @@ func main(cur realm) {
 //       {
 //         "key": "eta",
 //         "value": "123"
-//       },
-//       {
-//         "key": "rollbackCandidate",
-//         "value": "false"
 //       }
 //     ],
 //     "pkg_path": "gno.land/p/upgrade/v0"
@@ -78,14 +74,6 @@ func main(cur realm) {
 //       {
 //         "key": "rollback",
 //         "value": "false"
-//       },
-//       {
-//         "key": "implementation",
-//         "value": "gno.land/r/upgrade/vault/v1:impl"
-//       },
-//       {
-//         "key": "manifestHash",
-//         "value": "c38ec23a0e648120e5ef8fbc07464c1e5926b02e23c47f2f5a35189b41210fc6"
 //       }
 //     ],
 //     "pkg_path": "gno.land/p/upgrade/v0"
@@ -122,10 +110,6 @@ func main(cur realm) {
 //       {
 //         "key": "eta",
 //         "value": "0"
-//       },
-//       {
-//         "key": "rollbackCandidate",
-//         "value": "false"
 //       }
 //     ],
 //     "pkg_path": "gno.land/p/upgrade/v0"
@@ -144,14 +128,6 @@ func main(cur realm) {
 //       {
 //         "key": "eta",
 //         "value": "17403"
-//       },
-//       {
-//         "key": "implementation",
-//         "value": "gno.land/r/upgrade/vault/v2:impl"
-//       },
-//       {
-//         "key": "manifestHash",
-//         "value": "40cbdd911e898cb6d68914e6620c697becaeb64173f39ced79336301bce4be3e"
 //       },
 //       {
 //         "key": "rollback",

@@ -16,13 +16,13 @@ import (
 	v2 "gno.land/r/upgrade/vault/v2"
 )
 
-func upgradeTo(cur realm, path string, prepare, activate func()) {
+func upgradeTo(cur realm, path string, upgrade func()) {
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), path)
-	prepare()
-	println(revive(activate))
+	upgrade()
+	println(revive(upgrade))
 	testing.SkipHeights(vault.UpgradeDelay)
-	activate()
+	upgrade()
 	println("impl:", vault.ImplPath())
 }
 
@@ -32,7 +32,7 @@ func main(cur realm) {
 	bnk := banker.NewReadonlyBanker()
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
-	v1.Bootstrap(cross(cur))
+	v1.Upgrade(cross(cur))
 
 	testing.IssueCoins(vaultAddr, chain.Coins{{"ugnot", 1000}})
 	testing.SetOriginSend(chain.Coins{{"ugnot", 1000}})
@@ -40,14 +40,14 @@ func main(cur realm) {
 	vault.Call(cross(cur), "Deposit", "")
 	testing.SetOriginSend(nil)
 
-	upgradeTo(cur, "gno.land/r/upgrade/vault/v2", func() { v2.Prepare(cross(cur)) }, func() { v2.Activate(cross(cur)) })
+	upgradeTo(cur, "gno.land/r/upgrade/vault/v2", func() { v2.Upgrade(cross(cur)) })
 	testing.SetRealm(testing.NewUserRealm(alice))
 	vault.Call(cross(cur), "Withdraw", "100") // 1 fee
 	println("v2 alice coins:", bnk.GetCoin(alice, "ugnot"))
 
 	// Back to v1, after the same delay as any upgrade. v1 has no
 	// CollectFees, which a rollback is allowed to leave out.
-	upgradeTo(cur, "gno.land/r/upgrade/vault/v1", func() { v1.Prepare(cross(cur)) }, func() { v1.Activate(cross(cur)) })
+	upgradeTo(cur, "gno.land/r/upgrade/vault/v1", func() { v1.Upgrade(cross(cur)) })
 	testing.SetRealm(testing.NewUserRealm(alice))
 	println("v1 alice balance:", vault.Query("BalanceOf", alice.String()))
 	vault.Call(cross(cur), "Withdraw", "100") // no fee
@@ -55,7 +55,7 @@ func main(cur realm) {
 	println(revive(func() { vault.Call(cross(cur), "CollectFees", "") }))
 
 	// Forward to v2 again: the fee v2 collected is still there.
-	upgradeTo(cur, "gno.land/r/upgrade/vault/v2", func() { v2.Prepare(cross(cur)) }, func() { v2.Activate(cross(cur)) })
+	upgradeTo(cur, "gno.land/r/upgrade/vault/v2", func() { v2.Upgrade(cross(cur)) })
 	println(vault.Render(""))
 }
 

@@ -1,8 +1,8 @@
 // PKGPATH: gno.land/r/demo/main
 
 // With an implementation live, the delay starts only when the approved realm
-// calls Prepare, which it cannot do before its code is deployed. So users
-// always get the whole delay to read the code that will take over.
+// first calls Upgrade, which it cannot do before its code is deployed. So
+// users always get the whole delay to read the code that will take over.
 package main
 
 import (
@@ -18,8 +18,6 @@ import (
 // noWithdraw drops Withdraw.
 type noWithdraw struct{ v1.Impl }
 
-func (noWithdraw) ID() string { return "gno.land/r/demo/main:no-withdraw" }
-
 func (noWithdraw) Methods() (calls, queries []upgrade.Method) {
 	return []upgrade.Method{{Name: "Deposit", Schema: "v1:void->void"}},
 		[]upgrade.Method{{Name: "BalanceOf", Schema: "v1:address->int64"}}
@@ -28,43 +26,42 @@ func (noWithdraw) Methods() (calls, queries []upgrade.Method) {
 func main(cur realm) {
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
-	v1.Bootstrap(cross(cur))
+	v1.Upgrade(cross(cur))
 
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v2")
-	println("eta before prepare:", vault.ApprovedETA())
+	println("eta before the first call:", vault.ApprovedETA())
 
-	// Time spent before Prepare does not count.
+	// Only the approved realm may start the delay.
+	println(revive(func() { v1.Upgrade(cross(cur)) }))
+
+	// Time spent before the first call does not count: it starts the delay
+	// and installs nothing.
 	testing.SkipHeights(vault.UpgradeDelay)
-	println(revive(func() { v2.Activate(cross(cur)) }))
+	v2.Upgrade(cross(cur))
+	eta := vault.ApprovedETA()
+	println("impl:", vault.ImplPath(), "eta is a whole delay away:", eta == runtime.ChainHeight()+vault.UpgradeDelay)
 
-	// Only the approved realm may prepare.
-	println(revive(func() { v1.Prepare(cross(cur)) }))
-
-	v2.Prepare(cross(cur))
-	println("eta is a whole delay away:", vault.ApprovedETA() == runtime.ChainHeight()+vault.UpgradeDelay)
-	// Anyone can call v2.Prepare, so a second call must not push the ETA back.
-	println(revive(func() { v2.Prepare(cross(cur)) }))
-
+	// Anyone can call v2.Upgrade, so a second call must not push the ETA back.
 	testing.SkipHeights(vault.UpgradeDelay - 1)
-	println(revive(func() { v2.Activate(cross(cur)) }))
+	println(revive(func() { v2.Upgrade(cross(cur)) }))
+	println("eta unchanged:", vault.ApprovedETA() == eta)
 	testing.SkipHeights(1)
-	v2.Activate(cross(cur))
+	v2.Upgrade(cross(cur))
 	println("impl:", vault.ImplPath())
 
-	// Prepare checks the API, so a lacking implementation fails now rather
-	// than once the delay has passed.
+	// The first call checks the API, so a lacking implementation fails now
+	// rather than once the delay has passed.
 	vault.Approve(cross(cur), "gno.land/r/demo/main")
 	testing.SetRealm(testing.NewCodeRealm("gno.land/r/demo/main"))
-	println(revive(func() { vault.Prepare(cross(cur), noWithdraw{}) }))
+	println(revive(func() { vault.Upgrade(cross(cur), noWithdraw{}) }))
 }
 
 // Output:
-// eta before prepare: 0
-// upgrade: approved implementation has not called Prepare
+// eta before the first call: 0
 // upgrade: caller is not the approved implementation
-// eta is a whole delay away: true
-// upgrade: approval is already prepared
+// impl: gno.land/r/upgrade/vault/v1 eta is a whole delay away: true
 // upgrade: approval is still in its delay
+// eta unchanged: true
 // impl: gno.land/r/upgrade/vault/v2
 // upgrade: next implementation lacks API methods: Call Withdraw [v1:int64->void], Call CollectFees [v1:void->void]; to retire one, keep it and make it panic

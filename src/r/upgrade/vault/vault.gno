@@ -53,21 +53,10 @@ func PendingAdmin() address { return proxy.PendingOwner() }
 
 func Frozen() bool { return proxy.Frozen() }
 
-// Prepare is called by the approved implementation realm to start the
-// delay, once its code is deployed.
-func Prepare(cur realm, next Implementation) {
-	proxy.Prepare(0, cur, next)
-}
-
-// Bootstrap installs the first approved implementation without a delay.
-func Bootstrap(cur realm, first Implementation) {
-	proxy.Bootstrap(0, cur, first)
-}
-
-// Register activates the implementation saved by Prepare.
-func Register(cur realm) {
-	proxy.Register(0, cur)
-}
+// Upgrade is called by the approved implementation realm: once to start the
+// delay after its code is deployed, and again to activate next after it.
+// The first implementation activates on the first call.
+func Upgrade(cur realm, next Implementation) { proxy.Upgrade(0, cur, next) }
 
 func Call(cur realm, method, args string) string {
 	return proxy.Call(0, cur, method, args)
@@ -95,10 +84,5 @@ func API() (calls, queries []upgrade.Method) { return proxy.API() }
 // Missing lists the API methods next lacks, so an implementation's tests
 // can check it before approval.
 func Missing(next upgrade.Dispatcher) (calls, queries []upgrade.Method) { return proxy.Missing(next) }
-
-func ImplID() string              { return proxy.ImplID() }
-func PendingImplID() string       { return proxy.PendingImplID() }
-func ManifestHash() string        { return proxy.ManifestHash() }
-func PendingManifestHash() string { return proxy.PendingManifestHash() }
 
 func Render(path string) string { return proxy.Render(path) }

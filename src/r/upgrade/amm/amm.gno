@@ -51,23 +51,12 @@ func init(cur realm) {
 	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay)
 }
 
-// Prepare is called by the approved implementation realm to start the
-// delay, once its code is deployed.
-func Prepare(cur realm, next Pool) {
+// Upgrade is called by the approved implementation realm: once to start the
+// delay after its code is deployed, and again to activate next after it.
+// The first implementation activates on the first call.
+func Upgrade(cur realm, next Pool) {
 	defer guard()()
-	proxy.Prepare(0, cur, next)
-}
-
-// Bootstrap installs the first approved implementation without a delay.
-func Bootstrap(cur realm, first Pool) {
-	defer guard()()
-	proxy.Bootstrap(0, cur, first)
-}
-
-// Register activates the Pool saved by Prepare.
-func Register(cur realm) {
-	defer guard()()
-	proxy.Register(0, cur)
+	proxy.Upgrade(0, cur, next)
 }
 
 // Swap swaps amountIn of token0 for token1 (or the reverse), sending the
@@ -161,11 +150,6 @@ func Missing(next upgrade.Dispatcher) (calls, queries []upgrade.Method) {
 	assertUnlocked()
 	return proxy.Missing(next)
 }
-
-func ImplID() string              { return proxy.ImplID() }
-func PendingImplID() string       { return proxy.PendingImplID() }
-func ManifestHash() string        { return proxy.ManifestHash() }
-func PendingManifestHash() string { return proxy.PendingManifestHash() }
 
 func guard() func() {
 	assertUnlocked()

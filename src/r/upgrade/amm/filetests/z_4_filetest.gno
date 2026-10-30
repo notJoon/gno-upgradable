@@ -15,7 +15,6 @@ import (
 
 type next struct{ v1.Impl }
 
-func (next) ID() string { return "gno.land/r/demo/main:migration-approval" }
 
 func (next) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {
 	c.ApproveForCall(testtoken.A, chain.PackageAddress("gno.land/r/demo/main"), 100)
@@ -26,13 +25,13 @@ func main(cur realm) {
 	self := chain.PackageAddress("gno.land/r/demo/main")
 	testing.SetRealm(testing.NewUserRealm(amm.Admin0))
 	amm.Approve(cross(cur), "gno.land/r/upgrade/amm/v1")
-	v1.Bootstrap(cross(cur))
+	v1.Upgrade(cross(cur))
 
 	amm.Approve(cross(cur), "gno.land/r/demo/main")
 	testing.SetRealm(testing.NewCodeRealm("gno.land/r/demo/main"))
-	amm.Prepare(cross(cur), next{})
+	amm.Upgrade(cross(cur), next{})
 	testing.SkipHeights(amm.UpgradeDelay)
-	amm.Register(cross(cur))
+	amm.Upgrade(cross(cur), next{})
 	println("allowance after migration:", testtoken.A.Allowance(pool, self))
 }
 

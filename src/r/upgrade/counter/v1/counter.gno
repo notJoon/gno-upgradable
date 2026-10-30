@@ -10,13 +10,11 @@ import (
 
 const Counts = "counts" // address -> int64
 
-func Bootstrap(cur realm) { proxy.Bootstrap(cross(cur), Impl{}) }
-func Prepare(cur realm)   { proxy.Prepare(cross(cur), Impl{}) }
-func Activate(cur realm)  { proxy.Register(cross(cur)) }
+func Upgrade(cur realm) { proxy.Upgrade(cross(cur), Impl{}) }
 
 type Impl struct{}
 
-func (Impl) ID() string { return "gno.land/r/upgrade/counter/v1:impl" }
+var _ proxy.Counter = Impl{}
 
 func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {}
 

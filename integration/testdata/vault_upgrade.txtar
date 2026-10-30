@@ -17,7 +17,7 @@ gnoland start
 # v1 goes live.
 gnokey maketx call -pkgpath gno.land/r/upgrade/vault -func Approve -args gno.land/r/upgrade/vault/v1 -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
-gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v1 -func Bootstrap -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v1 -func Upgrade -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
 gnokey query vm/qeval --data 'gno.land/r/upgrade/vault.ImplPath()'
 stdout '"gno.land/r/upgrade/vault/v1"'
@@ -30,22 +30,22 @@ stdout OK!
 gnokey query vm/qeval --data "gno.land/r/upgrade/vault.Query(\"BalanceOf\", \"$test1_user_addr\")"
 stdout '"800"'
 
-# Deploy v2. It cannot register before approval.
+# Deploy v2. It cannot upgrade before approval.
 gnokey maketx addpkg -pkgdir $WORK/src/r/upgrade/vault/v2 -pkgpath gno.land/r/upgrade/vault/v2 -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
-! gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+! gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Upgrade -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stderr 'caller is not the approved implementation'
 
-# Approve v2. The delay starts only when v2 calls Prepare.
+# Approve v2. Its first Upgrade call starts the delay and installs nothing.
 gnokey maketx call -pkgpath gno.land/r/upgrade/vault -func Approve -args gno.land/r/upgrade/vault/v2 -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
-! gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
-stderr 'approved implementation has not called Prepare'
-
-# v2 prepares. It cannot register during the delay.
-gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Prepare -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Upgrade -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
-! gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+gnokey query vm/qeval --data 'gno.land/r/upgrade/vault.ImplPath()'
+stdout '"gno.land/r/upgrade/vault/v1"'
+
+# It cannot take over during the delay.
+! gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Upgrade -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stderr 'approval is still in its delay'
 
 # Let the 2-block delay pass, then v2 takes over. Every tx commits at least
@@ -56,7 +56,7 @@ gnokey maketx call -pkgpath gno.land/r/upgrade/vault -func Call -args Deposit -a
 stdout OK!
 gnokey maketx send -send 1ugnot -to $test1_user_addr -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
-gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Upgrade -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
 gnokey query vm/qeval --data 'gno.land/r/upgrade/vault.ImplPath()'
 stdout '"gno.land/r/upgrade/vault/v2"'
@@ -72,5 +72,5 @@ gnokey query vm/qrender --data 'gno.land/r/upgrade/vault:'
 stdout 'Fees collected: 5ugnot'
 
 # v1 cannot take control back.
-! gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v1 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+! gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v1 -func Upgrade -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stderr 'caller is not the approved implementation'

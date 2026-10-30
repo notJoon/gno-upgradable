@@ -19,34 +19,34 @@ func main(cur realm) {
 
 	testing.SetRealm(testing.NewUserRealm(counter.Admin0))
 	counter.Approve(cross(cur), "gno.land/r/upgrade/counter/v1")
-	v1.Bootstrap(cross(cur))
+	v1.Upgrade(cross(cur))
 
 	testing.SetRealm(testing.NewUserRealm(alice))
 	counter.Inc(cross(cur))
 	counter.Inc(cross(cur))
 	testing.SetRealm(testing.NewUserRealm(bob))
 	counter.Inc(cross(cur))
-	println(counter.ImplID(), counter.Get(alice), counter.Get(bob))
+	println(counter.ImplPath(), counter.Get(alice), counter.Get(bob))
 
 	testing.SetRealm(testing.NewUserRealm(counter.Admin0))
 	counter.Approve(cross(cur), "gno.land/r/upgrade/counter/v2")
-	v2.Prepare(cross(cur))
+	v2.Upgrade(cross(cur))
 	print(counter.Render(""))
 	testing.SkipHeights(counter.UpgradeDelay)
-	v2.Activate(cross(cur))
+	v2.Upgrade(cross(cur))
 
 	testing.SetRealm(testing.NewUserRealm(alice))
 	counter.Inc(cross(cur))
-	println(counter.ImplID(), counter.Get(alice), counter.Get(bob))
+	println(counter.ImplPath(), counter.Get(alice), counter.Get(bob))
 	print(counter.Render(""))
 }
 
 // Output:
-// gno.land/r/upgrade/counter/v1:impl 2 1
+// gno.land/r/upgrade/counter/v1 2 1
 // > [!WARNING]
 // > Upgrade pending: `gno.land/r/upgrade/counter/v2` can take over at block 17403.
 //
-// gno.land/r/upgrade/counter/v2:impl 3 1
+// gno.land/r/upgrade/counter/v2 3 1
 // # Counter
 //
 // Total: 4

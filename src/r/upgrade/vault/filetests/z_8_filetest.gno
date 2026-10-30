@@ -15,19 +15,19 @@ import (
 func main(cur realm) {
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
-	v1.Bootstrap(cross(cur))
+	v1.Upgrade(cross(cur))
 	println(vault.Render(""))
 
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v2")
 	println(vault.Render(""))
-	v2.Prepare(cross(cur))
+	v2.Upgrade(cross(cur))
 	println(vault.Render(""))
 
 	testing.SkipHeights(vault.UpgradeDelay)
-	v2.Activate(cross(cur))
+	v2.Upgrade(cross(cur))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
-	v1.Prepare(cross(cur))
+	v1.Upgrade(cross(cur))
 	println(vault.Render(""))
 
 	vault.Freeze(cross(cur))
@@ -38,7 +38,7 @@ func main(cur realm) {
 // # Vault
 //
 // > [!WARNING]
-// > Upgrade approved: `gno.land/r/upgrade/vault/v2`. Its delay of 17280 blocks starts when it calls Prepare.
+// > Upgrade approved: `gno.land/r/upgrade/vault/v2`. Its delay of 17280 blocks starts when it calls Upgrade.
 //
 // # Vault
 //

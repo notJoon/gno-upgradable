@@ -48,13 +48,13 @@ func Freeze(cur realm)                          { proxy.Freeze(0, cur) }
 func TransferAdmin(cur realm, newAdmin address) { proxy.TransferOwnership(0, cur, newAdmin) }
 func AcceptAdmin(cur realm)                     { proxy.AcceptOwnership(0, cur) }
 
-func Bootstrap(cur realm, first Counter) { proxy.Bootstrap(0, cur, first) }
-func Prepare(cur realm, next Counter)    { proxy.Prepare(0, cur, next) }
-func Register(cur realm)                 { proxy.Register(0, cur) }
+// Upgrade is called by the approved implementation realm: once to start the
+// delay, and again to activate next after it. The first implementation
+// activates on the first call.
+func Upgrade(cur realm, next Counter) { proxy.Upgrade(0, cur, next) }
 
 func Admin() address     { return proxy.Owner() }
 func ImplPath() string   { return proxy.ImplPath() }
-func ImplID() string     { return proxy.ImplID() }
 func Approved() string   { return proxy.Approved() }
 func ApprovedETA() int64 { return proxy.ETA() }
 
