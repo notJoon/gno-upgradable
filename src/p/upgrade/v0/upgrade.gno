@@ -85,12 +85,9 @@ func (u *Upgrader) Approve(_ int, rlm realm, pkgPath string) {
 	u.approve(pkgPath)
 }
 
-// approve is Approve without the owner check, for the first approval made
-// from the holding realm's init. The owner cannot be checked there, since the
-// caller of init is whoever deploys the realm. It needs no check either: no
-// implementation is live yet, so there is nothing to protect, and the path
-// is written in the realm's source for anyone to read. It is unexported, so a
-// realm cannot use it to skip the check later.
+// approve applies an approval after the exported caller has performed its
+// authorization check. Keeping validation and state changes here also lets
+// package tests exercise path and delay rules directly.
 func (u *Upgrader) approve(pkgPath string) {
 	if u.frozen {
 		panic(ErrFrozen)

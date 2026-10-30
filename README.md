@@ -27,6 +27,11 @@ liquidity and arithmetic rules are deliberately simplified.
    activates the exact implementation saved by `Prepare` and calls `Migrate`
    in the same transaction.
 
+The package authenticates the approved realm when it calls `Bootstrap`, but it
+cannot query whether an arbitrary package path is already deployed. The owner
+must therefore treat “deploy, inspect, then approve” as an operational
+invariant for the first implementation.
+
 The owner may cancel a pending upgrade. `Freeze` permanently disables future
 upgrades without disabling implementation-level admin methods. A rollback is
 the same delayed lifecycle applied to a previously served implementation.
