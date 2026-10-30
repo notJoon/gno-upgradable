@@ -1,6 +1,6 @@
 // PKGPATH: gno.land/r/demo/main
 
-// An approved implementation cannot activate from a swap callback while the
+// An approved implementation cannot install from a swap callback while the
 // old implementation is still updating the pool.
 package main
 

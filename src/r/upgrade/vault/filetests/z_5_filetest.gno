@@ -89,7 +89,8 @@ func main(cur realm) {
 	println(vault.Missing(moved{}))
 	println(vault.Missing(changedSchema{}))
 
-	// Upgrade activates only the value it saved when the delay started.
+	// The first call checks the API, and the call after the delay installs
+	// only the value saved when the delay started.
 	approve(cur, "gno.land/r/demo/main")
 	testing.SetRealm(self)
 	println(revive(func() { vault.Upgrade(cross(cur), changedSchema{}) }))

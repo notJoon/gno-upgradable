@@ -21,7 +21,7 @@ Implementation values should be value types such as an empty struct. A value hol
 
 ## Lifecycle
 
-`Bootstrap`, `Prepare`, and `Register` are replaced by one `Upgrade(next)`, called by the approved realm. With nothing live it installs `next` at once. Otherwise the first call checks `next` against the API, saves it, and starts the delay. A call after the delay installs the saved value, which `next` must equal, and runs its `Migrate`. A later call cannot push the ETA back. Each proxy and implementation realm exports one lifecycle function instead of three.
+`Bootstrap`, `Prepare`, `Register`, and the implementation realms' `Activate` are replaced by one `Upgrade(next)`, called by the approved realm. With nothing live it installs `next` at once. Otherwise the first call checks `next` against the API, saves it, and starts the delay. A call after the delay installs the saved value, which `next` must equal, and runs its `Migrate`. A later call cannot push the ETA back. Each proxy and implementation realm exports one lifecycle function instead of several.
 
 The upgrade state machine is an internal type of the package. Nothing outside `Proxy` used it, and keeping a second public copy of the rollback history let the two disagree.
 

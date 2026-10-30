@@ -7,7 +7,7 @@ patchpkg 'const UpgradeDelay = 17280' 'const UpgradeDelay = 2'
 loadpkg gno.land/p/nt/bptree/v0
 loadpkg gno.land/p/nt/grc20/v0
 loadpkg gno.land/p/nt/ufmt/v0
-# src packages, named because loadpkg resolves the imports of a dir-only load against examples.
+# src packages, named because loadpkg resolves the imports of a load given only a dir against examples.
 loadpkg gno.land/p/upgrade/v0 $WORK/src/p/upgrade/v0
 loadpkg gno.land/r/upgrade/vault $WORK/src/r/upgrade/vault
 loadpkg gno.land/r/upgrade/vault/v1 $WORK/src/r/upgrade/vault/v1
@@ -50,7 +50,7 @@ stderr 'approval is still in its delay'
 
 # Let the 2-block delay pass, then v2 takes over. Every tx commits at least
 # one block, and the node sometimes adds one empty block after a tx, so the
-# check above sees at most one block past the approval while two txs here
+# check above sees at most one block past the first Upgrade call while two txs here
 # guarantee two. Waiting on a single tx passes or fails with that timing.
 gnokey maketx call -pkgpath gno.land/r/upgrade/vault -func Call -args Deposit -args '' -send 100ugnot -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
@@ -71,6 +71,6 @@ stdout '"400"'
 gnokey query vm/qrender --data 'gno.land/r/upgrade/vault:'
 stdout 'Fees collected: 5ugnot'
 
-# v1 cannot take control back.
+# v1 cannot take control back without a new approval.
 ! gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v1 -func Upgrade -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stderr 'caller is not the approved implementation'

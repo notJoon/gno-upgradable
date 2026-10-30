@@ -1,4 +1,4 @@
-# A real node must reject implementation activation from a swap callback.
+# A real node must reject installing an implementation from a swap callback.
 
 patchpkg 'const UpgradeDelay = 17280' 'const UpgradeDelay = 2'
 loadpkg gno.land/p/nt/bptree/v0

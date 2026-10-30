@@ -10,12 +10,12 @@
 <text x="640" y="56" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">User</text>
 <circle cx="612" cy="92" r="3.5" fill="#000"/>
 <polygon points="600,77 172,77 172,66 146,92 172,118 172,107 600,107" fill="#fff36b" stroke="#b8a600" stroke-width="1.5"/>
-<text x="386.0" y="96" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Swap(pool, ...)</text>
+<text x="386.0" y="96" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Swap(...)</text>
 <circle cx="330" cy="205" r="38" fill="#cdeb8b" stroke="#6b8e23" stroke-width="1.5"/>
 <text x="330" y="210" font-size="13" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Impl v2</text>
 <path d="M 100,133 C 100,180 120,205 160,205" fill="none" stroke="#000" stroke-width="1.4" marker-end="url(#arrow)"/>
 <polygon points="160,190 260,190 260,179 286,205 260,231 260,220 160,220" fill="#fff36b" stroke="#b8a600" stroke-width="1.5"/>
-<text x="210.0" y="209" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Handle(tx, c)</text>
+<text x="210.0" y="209" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Swap(tx, c, ...)</text>
 <circle cx="500" cy="170" r="30" fill="#cdeb8b" stroke="#6b8e23" stroke-width="1.5"/>
 <text x="500" y="175" font-size="13" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">Tx</text>
 <circle cx="500" cy="240" r="30" fill="#cdeb8b" stroke="#6b8e23" stroke-width="1.5"/>

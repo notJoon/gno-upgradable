@@ -57,7 +57,7 @@ type Dispatcher interface {
 
 	// Methods lists the method descriptors Call and Query answer. The proxy
 	// refuses any other name before the implementation runs, and checks
-	// the lists against the API when the implementation registers. Keep
+	// the lists against the API when Upgrade first sees the value. Keep
 	// them in step with Call and Query: nothing checks they agree, and a
 	// listed name Call does not handle reaches its default case.
 	//
@@ -126,15 +126,15 @@ type Proxy struct {
 
 // servedImpl is a realm path and the value it installed. The chain
 // authenticates the path as the caller, and the value's type decides the code
-// that runs, so together they name an implementation without an ID.
+// that runs, so together they name an implementation.
 type servedImpl struct {
 	path string
 	impl Impl
 }
 
 // NewProxy returns an empty proxy held by the realm whose live cur is rlm.
-// The owner must approve the first implementation after its realm is deployed;
-// later implementations wait delay blocks.
+// The owner must approve the first implementation only after its realm is
+// deployed, because it installs without a delay. Later ones wait delay blocks.
 func NewProxy(_ int, rlm realm, owner address, delay int64) *Proxy {
 	return &Proxy{u: newUpgrader(0, rlm, owner, delay), store: NewStore(0, rlm)}
 }
@@ -302,8 +302,9 @@ func (p *Proxy) Missing(next Dispatcher) (calls, queries []Method) {
 
 // Approve, Cancel, Freeze and TransferOwnership take the proxy realm's
 // live cur and check its caller is the owner, so the realm forwards them
-// as is, with no check of its own. See upgrader for why the check is here.
-// The realm must pass its own cur, not cur.Previous(), or the check fails.
+// as is, with no check of its own. The realm must pass its own cur, not
+// cur.Previous(), or the check fails. Approve, Cancel and Freeze also drop
+// a value saved by Upgrade.
 func (p *Proxy) Approve(_ int, rlm realm, pkgPath string) {
 	p.u.Approve(0, rlm, pkgPath)
 	p.clearPending()
@@ -327,13 +328,20 @@ func (p *Proxy) AcceptOwnership(_ int, rlm realm) { p.u.AcceptOwnership(0, rlm) 
 func (p *Proxy) Owner() address        { return p.u.Owner() }
 func (p *Proxy) PendingOwner() address { return p.u.PendingOwner() }
 func (p *Proxy) Frozen() bool          { return p.u.Frozen() }
-func (p *Proxy) ImplPath() string      { return p.u.PkgPath() }
 func (p *Proxy) Approved() string      { return p.u.Approved() }
-func (p *Proxy) ETA() int64            { return p.u.ETA() }
+
+// ImplPath returns the realm that installed the current implementation. That
+// realm need not declare the value's type, so audit both.
+func (p *Proxy) ImplPath() string { return p.u.PkgPath() }
+
+// ETA returns the first height at which the approved realm can install. It
+// stays 0 until that realm's first Upgrade call starts the delay, except for
+// the first implementation, which needs none.
+func (p *Proxy) ETA() int64 { return p.u.ETA() }
 
 func (p *Proxy) current() Impl {
 	if p.impl == nil {
-		panic("upgrade: no implementation registered")
+		panic("upgrade: no implementation installed")
 	}
 	return p.impl
 }

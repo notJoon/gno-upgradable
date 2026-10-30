@@ -35,13 +35,10 @@ const (
 // that called the realm holding the upgrader: a user, or a realm such as a
 // DAO acting at its own address.
 //
-// The owner check lives here, not in the holding realm. It used to be the
-// realm's job: Approve took no realm, and every realm's forwarding function
-// had to check its own admin first. A realm that forgot that one line let
-// anyone schedule any upgrade. The delay does not save users from that,
-// because it only helps if someone notices the approval in time. With the
-// check here, the forwarding functions are one line each and cannot leave it
-// out, the same way accept already checked its own caller.
+// The owner check lives here, not in the holding realm, so a forwarding
+// function cannot leave it out. A realm that forgot its own admin check would
+// let anyone schedule any upgrade, and the delay helps only if someone
+// notices in time.
 //
 // The owner is an address rather than a realm path because one comparison
 // then covers both a user and a governance realm, and it avoids the trap of
@@ -89,14 +86,9 @@ func (u *upgrader) approve(pkgPath string) {
 		panic(ErrFrozen)
 	}
 	// pkgPath must look like `<domain>/r/<path>` and must not name a subrealm.
-	// Splitting into at most three parts keeps the rest of the whole path together.
-	//
-	// 	Example: "example.com/r/myrealm"
-	//  After splitting: ["example.com", "r", "myrealm"]
-	//
-	// This check only catches typos in the approval. The real gate is in accept,
-	// which compares the approval with the calling realm's pkgpath,
-	// and no deployed realm can match a malformed path.
+	// This only catches typos. The real gate is assertApproved, which compares
+	// the approval with the calling realm's path, and no deployed realm can
+	// match a malformed one.
 	parts := strings.SplitN(pkgPath, "/", 3)
 	_, _, isSub := chain.SplitPkgSubPath(pkgPath)
 	if len(parts) != 3 || parts[0] == "" || parts[1] != "r" || parts[2] == "" || isSub {
@@ -263,18 +255,16 @@ func (u *upgrader) emit(typ string, attrs ...string) {
 	chain.Emit(typ, append([]string{"realm", u.realm}, attrs...)...)
 }
 
-// PkgPath returns the package path of the current implementation,
-// or empty string before the first implementation is accepted.
-//
-// It names the realm that registered, which is not necessarily the realm
-// that declares the registered value's type. Audit both.
+// PkgPath returns the realm that installed the current implementation,
+// or empty string before the first one.
 func (u *upgrader) PkgPath() string { return u.pkgPath }
 
 // Approved returns the pending approval, or empty string
 // if there is no pending approval.
 func (u *upgrader) Approved() string { return u.approved }
 
-// Owner returns the address that may approve, cancel and freeze.
+// Owner returns the address that may approve, cancel, freeze and transfer
+// ownership.
 func (u *upgrader) Owner() address { return u.owner }
 
 // PendingOwner returns the address nominated to accept ownership.
@@ -284,7 +274,7 @@ func (u *upgrader) PendingOwner() address { return u.pendingOwner }
 func (u *upgrader) Frozen() bool { return u.frozen }
 
 // ETA returns the first block height at which the pending approval can be
-// accepted, or 0 if there is none or it is not prepared yet.
+// accepted, or 0 if there is none or its delay has not started.
 func (u *upgrader) ETA() int64 { return u.eta }
 
 // onlyChars reports whether s holds only lowercase letters, digits and extra.

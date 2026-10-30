@@ -89,7 +89,7 @@ func (Impl) Query(v upgrade.View, method, args string) string {
 func (Impl) Render(v upgrade.View, path string) string { return "# App\n" }
 ```
 
-The proxy refuses method descriptors missing from `Methods`, so `Call` here
+The proxy refuses method names missing from `Methods`, so `Call` here
 only sees `Inc`. See `src/r/upgrade/vault` for a complete example with coins,
 admin methods, a migration and tests.
 
@@ -114,12 +114,16 @@ so keep it to what must be typed. If it makes callbacks, guard every entry point
 that can observe inconsistent application state or replace the implementation,
 as the AMM does.
 
+A typed proxy cannot gain entry points after it is deployed. A later version
+can change behavior or add a `Render`, but a new function needs a new proxy. If
+later versions may need new methods, forward `Call` and `Query` from the start.
+
 The proxy names an implementation by the realm that installs it and the value
 itself, compared with `==`. The chain authenticates the realm, and the value's
 type decides the code that runs. Use a value type such as an empty struct: a
-pointer compares by address, so a fresh pointer on each call never matches. When the delay starts, the proxy copies the method lists and saves
-the value. Calls route through that copy, and only the saved value can be
-installed. See [ADR 0002](docs/adr/0002-identify-implementations-by-value.md).
+pointer compares by address, so a fresh pointer on each call never matches.
+When `Upgrade` first checks a value, the proxy copies its method lists and saves
+it. Calls route through that copy, and only the saved value can be installed. See [ADR 0002](docs/adr/0002-identify-implementations-by-value.md).
 
 ## Upgrade lifecycle
 
@@ -152,9 +156,10 @@ invariant for the first implementation.
 The owner may cancel a pending upgrade. `Freeze` permanently disables future
 upgrades without disabling implementation-level admin methods. A rollback is
 the same delayed lifecycle applied to an implementation value that the same
-realm installed before. Ownership transfer completes only
-after the nominated address calls `AcceptOwnership` through the proxy's
-corresponding forwarding function.
+realm installed before. It skips the grow-only check, so methods added later
+report as unavailable until a version that has them returns. Ownership transfer
+completes only after the nominated address calls `AcceptOwnership` through the
+proxy's corresponding forwarding function.
 
 ## Why object capabilities
 
@@ -238,8 +243,9 @@ In particular:
 Every upgrade event includes the proxy realm in a `realm` attribute.
 `UpgradePrepared` and `Upgraded` report whether the value is a rollback. Gno
 has no reflection to name a value's type, so events name the realm path only.
-`Render` prepends
-a pending-upgrade, rollback, or freeze banner that implementations cannot hide.
+`Render` prepends a banner for an approved upgrade, a pending upgrade or
+rollback, or a freeze, which implementations cannot hide. An implementation that
+is not a `Renderer` gets only the banner.
 Production monitoring should consume the events rather than rely on users
 opening the rendered page.
 
@@ -262,15 +268,15 @@ check. `test` runs package tests and filetests. `integration` starts an in-memor
 gno.land node and verifies signed upgrade transactions, state continuity, and
 AMM callback reentrancy with the pinned mainnet release. CI additionally runs
 `integration-gnodev`, which deploys v2 with `addpkg` against an isolated gnodev
-chain and checks that state survives activation.
+chain and checks that state survives the upgrade.
 
 Before deploying a proxy:
 
 - choose an explicit admin user or governance realm and an escape delay;
 - make every admin forwarder call the checks on `Proxy` rather than duplicating
   authorization in the realm;
-- test activation, cancellation, ownership transfer, freeze, migration,
-  rollback, unexpected coins, and retained-handle rejection;
+- test first install, delayed upgrade, cancellation, ownership transfer,
+  freeze, migration, rollback, unexpected coins, and retained-handle rejection;
 - test callback and asset flows on a real node, not only with filetests; and
 - audit the approved realm and the concrete implementation type it passes to
   `Upgrade`.

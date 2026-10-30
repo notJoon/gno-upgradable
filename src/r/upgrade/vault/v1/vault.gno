@@ -1,8 +1,8 @@
 // Package vault/v1 is the first implementation of
 // gno.land/r/upgrade/vault. It keeps no state and no authority
-// of its own. Its exported functions do nothing without the live
-// Tx and Custody that only the vault can create, so later versions
-// may build on them.
+// of its own. Its exported helpers that take a Tx or Custody do
+// nothing without the live ones only the vault can create, so later
+// versions may build on them.
 //
 // Methods: Call("Deposit", ""), Call("Withdraw", "<amount>"),
 // Query("BalanceOf", "<address>").

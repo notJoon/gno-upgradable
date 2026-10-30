@@ -1,8 +1,8 @@
 // PKGPATH: gno.land/r/demo/main
 
-// A typed-only implementation needs Impl, not Dispatcher or Renderer. The
-// proxy tells implementations apart by value: Upgrade installs only the value
-// it prepared, and returning to a value that served before is a rollback.
+// An implementation with only typed methods needs Impl, not Dispatcher or
+// Renderer. Upgrade installs only the value it saved, and the same realm
+// returning to a value that served before is a rollback.
 package main
 
 import (

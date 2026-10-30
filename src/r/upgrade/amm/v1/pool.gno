@@ -21,7 +21,8 @@ const (
 	Shares = "shares" // address -> int64
 )
 
-// Upgrade installs v1 once the pool has approved this realm.
+// Upgrade installs v1 once the pool has approved this realm: at once as the
+// first implementation, or in two calls around the delay.
 func Upgrade(cur realm) { proxy.Upgrade(cross(cur), Impl{}) }
 
 type Impl struct{}

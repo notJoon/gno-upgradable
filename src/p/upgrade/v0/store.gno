@@ -10,8 +10,7 @@ import (
 const ErrNotOwner = "upgrade: rlm is not the store owner's live cur"
 
 // Store is a proxy's state: a set of named tables, each an ordered map from
-// string keys to values. The proxy creates it from init and keeps it in an
-// unexported variable.
+// string keys to values. NewProxy creates one and the Proxy keeps it.
 //
 // Implementations never see the tables themselves. They read through a View
 // and write through a Tx, which only the proxy can open and which cannot be

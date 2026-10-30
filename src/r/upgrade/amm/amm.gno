@@ -11,8 +11,8 @@ import (
 	"gno.land/p/upgrade/v0"
 )
 
-// UpgradeDelay is how many blocks an approved upgrade waits before it can
-// be activated, about a day at 5s blocks.
+// UpgradeDelay is how many blocks pass between an approved realm's first
+// Upgrade call and the call that installs it, about a day at 5s blocks.
 const UpgradeDelay = 17280
 
 // Admin0 is the first admin, who approves upgrades. It is written in the
@@ -52,8 +52,8 @@ func init(cur realm) {
 }
 
 // Upgrade is called by the approved implementation realm: once to start the
-// delay after its code is deployed, and again to activate next after it.
-// The first implementation activates on the first call.
+// delay after its code is deployed, and again after it to install next.
+// The first implementation installs on the first call.
 func Upgrade(cur realm, next Pool) {
 	defer guard()()
 	proxy.Upgrade(0, cur, next)
@@ -96,8 +96,8 @@ func Render(path string) string {
 	return proxy.Render(path)
 }
 
-// Approve lets pkgPath register after the delay. Unless it served before,
-// it must answer every method in API.
+// Approve lets the realm at pkgPath upgrade. Unless that realm installed the
+// same value before, the value must answer every method in API.
 func Approve(cur realm, pkgPath string) {
 	defer guard()()
 	proxy.Approve(0, cur, pkgPath)
@@ -129,7 +129,10 @@ func PendingAdmin() address { return proxy.PendingOwner() }
 func Frozen() bool          { return proxy.Frozen() }
 func ImplPath() string      { return proxy.ImplPath() }
 func Approved() string      { return proxy.Approved() }
-func ApprovedETA() int64    { return proxy.ETA() }
+
+// ApprovedETA returns the first block height at which the approved realm can
+// install, or 0 until its first Upgrade call starts the delay.
+func ApprovedETA() int64 { return proxy.ETA() }
 
 // Methods lists the methods Call and Query answer now.
 func Methods() (calls, queries []upgrade.Method) {
@@ -138,7 +141,7 @@ func Methods() (calls, queries []upgrade.Method) {
 }
 
 // API lists every method any implementation has served. After a rollback
-// some may be unavailable; a later implementation must answer them all.
+// some may be unavailable. A later implementation must answer them all.
 func API() (calls, queries []upgrade.Method) {
 	assertUnlocked()
 	return proxy.API()

@@ -2,7 +2,7 @@
 
 // Upgrading from v1 to v2 keeps the vault's address, coins and balances,
 // v2 adds a method without changing the vault, and an old implementation
-// cannot take control back.
+// cannot take control back without a new approval.
 package main
 
 import (
@@ -67,7 +67,7 @@ func main(cur realm) {
 	vault.Call(cross(cur), "CollectFees", "")
 	println("admin coins:", bnk.GetCoin(admin, "ugnot"), "vault coins:", bnk.GetCoin(vaultAddr, "ugnot"))
 
-	// v1 is still on chain but cannot register again.
+	// v1 is still on chain but cannot take over again without a new approval.
 	println(revive(func() { v1.Upgrade(cross(cur)) }))
 	println("impl:", vault.ImplPath())
 }

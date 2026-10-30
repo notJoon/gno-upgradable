@@ -75,6 +75,7 @@ tx maketx call -pkgpath gno.land/r/upgrade/vault -func Approve \
 	-gas-wanted 50000000 -broadcast -chainid dev test1 >/dev/null
 tx maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Upgrade \
 	-gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid dev test1 >/dev/null
+# The send only advances a block, so the 2-block delay has passed.
 tx maketx send -send 1ugnot -to g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5 \
 	-gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid dev test1 >/dev/null
 tx maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Upgrade \
