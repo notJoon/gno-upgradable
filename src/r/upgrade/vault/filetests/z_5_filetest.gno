@@ -71,6 +71,12 @@ func approve(cur realm, path string) {
 // noFees is v1 as a new implementation: it lacks v2's CollectFees.
 type noFees struct{ v1.Impl }
 
+func inspect(next upgrade.Impl) {
+	candidate := vault.InspectImpl(next)
+	println(candidate.Calls, candidate.Queries)
+	println(candidate.MissingCalls, candidate.MissingQueries)
+}
+
 func main(cur realm) {
 	alice := testutils.TestAddress("alice")
 	self := testing.NewCodeRealm("gno.land/r/demo/main")
@@ -84,10 +90,11 @@ func main(cur realm) {
 	println(revive(func() { vault.Call(cross(cur), "BalanceOf", alice.String()) }))
 	println(revive(func() { vault.Query("Deposit", "") }))
 
-	// Missing tells an implementation what it lacks before approval.
-	println(vault.Missing(noWithdraw{}))
-	println(vault.Missing(moved{}))
-	println(vault.Missing(changedSchema{}))
+	// InspectImpl returns both the candidate's declarations and what it lacks
+	// before approval.
+	inspect(noWithdraw{})
+	inspect(moved{})
+	inspect(changedSchema{})
 
 	// The first call checks the API, and the call after the delay installs
 	// only the value saved when the delay started.
@@ -138,8 +145,11 @@ func main(cur realm) {
 // slice[(struct{("Deposit" string),("v1:void->void" string)} gno.land/p/upgrade/v0.Method),(struct{("Withdraw" string),("v1:int64->void" string)} gno.land/p/upgrade/v0.Method)] slice[(struct{("BalanceOf" string),("v1:address->int64" string)} gno.land/p/upgrade/v0.Method)]
 // upgrade: unknown method BalanceOf
 // upgrade: unknown method Deposit
+// slice[(struct{("Deposit" string),("v1:void->void" string)} gno.land/p/upgrade/v0.Method)] slice[(struct{("BalanceOf" string),("v1:address->int64" string)} gno.land/p/upgrade/v0.Method)]
 // slice[(struct{("Withdraw" string),("v1:int64->void" string)} gno.land/p/upgrade/v0.Method)] (nil []gno.land/p/upgrade/v0.Method)
+// slice[(struct{("Deposit" string),("v1:void->void" string)} gno.land/p/upgrade/v0.Method),(struct{("Withdraw" string),("v1:int64->void" string)} gno.land/p/upgrade/v0.Method),(struct{("BalanceOf" string),("v1:address->int64" string)} gno.land/p/upgrade/v0.Method)] (nil []gno.land/p/upgrade/v0.Method)
 // (nil []gno.land/p/upgrade/v0.Method) slice[(struct{("BalanceOf" string),("v1:address->int64" string)} gno.land/p/upgrade/v0.Method)]
+// slice[(struct{("Deposit" string),("v1:void->void" string)} gno.land/p/upgrade/v0.Method),(struct{("Withdraw" string),("v2:json->void" string)} gno.land/p/upgrade/v0.Method)] slice[(struct{("BalanceOf" string),("v1:address->int64" string)} gno.land/p/upgrade/v0.Method)]
 // slice[(struct{("Withdraw" string),("v1:int64->void" string)} gno.land/p/upgrade/v0.Method)] (nil []gno.land/p/upgrade/v0.Method)
 // upgrade: next implementation lacks API methods: Call Withdraw [v1:int64->void]; to retire one, keep it and make it panic
 // upgrade: next is not the prepared implementation

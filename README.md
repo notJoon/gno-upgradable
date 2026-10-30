@@ -74,7 +74,7 @@ func (Impl) Methods() (calls, queries []upgrade.Method) {
 		[]upgrade.Method{{Name: "Get", Schema: "v1:address->int64"}}
 }
 
-func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {}
+func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from upgrade.ImplRef) {}
 
 func (Impl) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) string {
 	key := tx.Caller().String()
@@ -89,9 +89,19 @@ func (Impl) Query(v upgrade.View, method, args string) string {
 func (Impl) Render(v upgrade.View, path string) string { return "# App\n" }
 ```
 
+`Migrate` receives an empty `ImplRef` on the first installation. On later
+transitions, use `from.Path()` to select a predecessor realm or
+`from.Is(path, value)` to distinguish values that realm has served.
+
 The proxy refuses method names missing from `Methods`, so `Call` here
 only sees `Inc`. See `src/r/upgrade/vault` for a complete example with coins,
 admin methods, a migration and tests.
+
+Before approval, `proxy.InspectImpl(next)` checks any `Impl` without changing
+proxy state. Its `Candidate` result contains the declared call and query
+methods plus any methods missing from the proxy's grow-only API. A typed-only
+implementation has empty declared lists. Inspection cannot authenticate the
+candidate's realm path or determine rollback status; `Upgrade` does that.
 
 ### String calls or typed entry points
 

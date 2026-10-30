@@ -147,11 +147,9 @@ func API() (calls, queries []upgrade.Method) {
 	return proxy.API()
 }
 
-// Missing lists the API methods next lacks, so an implementation's tests
-// can check it before approval.
-func Missing(next upgrade.Dispatcher) (calls, queries []upgrade.Method) {
+func InspectImpl(next upgrade.Impl) upgrade.Candidate {
 	assertUnlocked()
-	return proxy.Missing(next)
+	return proxy.InspectImpl(next)
 }
 
 func guard() func() {

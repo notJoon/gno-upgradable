@@ -17,6 +17,8 @@ The value alone is not enough. Another realm cannot write a composite literal of
 
 A rollback is a pair that served before. Upgrade installs only the value it saved when the delay started. Method lists are copied when a value is checked, and calls route through that copy, so nothing needs to be fingerprinted.
 
+`Migrate` receives the previous pair as an `ImplRef`. Its zero value marks the first installation. Later implementations can inspect the previous realm path or compare the full pair with a known implementation value, so one realm can serve several values without making their migrations ambiguous. A realm that wants another realm to compare one of its realm-declared values must export a function that returns that value, because the other realm cannot construct it directly.
+
 Implementation values should be value types such as an empty struct. A value holding a slice, map, or func is refused with a clear error. A pointer compares by address, so a fresh pointer on each call never matches the saved one.
 
 ## Lifecycle
@@ -28,5 +30,6 @@ The upgrade state machine is an internal type of the package. Nothing outside `P
 ## Consequences
 
 - `Impl` only requires `Migrate`.
+- `InspectImpl` validates any implementation value and reports its declared and missing string API without changing proxy state. It cannot authenticate the candidate realm or identify a rollback, because only a crossing `Upgrade` call supplies that path.
 - Events no longer carry an implementation label, because Gno has no reflection to name a dynamic type. Observers read the approved realm's code to see which value it passes to `Upgrade`, then the code of that value's type.
 - A realm path that served before gets the rollback exception only for the same value, and a value gets it only from the realm that installed it.

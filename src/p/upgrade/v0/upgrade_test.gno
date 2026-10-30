@@ -98,7 +98,7 @@ func TestStore(cur realm, t *testing.T) {
 
 type dupMethods struct{}
 
-func (dupMethods) Migrate(tx *Tx, c *Custody, from string) {}
+func (dupMethods) Migrate(tx *Tx, c *Custody, from ImplRef) {}
 func (dupMethods) Methods() (calls, queries []Method) {
 	return []Method{{Name: "Call", Schema: "v1"}, {Name: "Call", Schema: "v2"}}, nil
 }
@@ -107,20 +107,34 @@ func (dupMethods) Query(v View, method, args string) string            { return 
 
 type uncomparable struct{ xs []int }
 
-func (uncomparable) Migrate(tx *Tx, c *Custody, from string) {}
+func (uncomparable) Migrate(tx *Tx, c *Custody, from ImplRef) {}
+
+type oneMethod struct{ dupMethods }
+
+func (oneMethod) Methods() (calls, queries []Method) {
+	return []Method{{Name: "Call", Schema: "v1"}}, nil
+}
 
 func TestInspectImpl(cur realm, t *testing.T) {
+	p := NewProxy(0, cur, owner, 0)
 	uassert.PanicsWithMessage(t, cur, "upgrade: duplicate Call method Call", func() {
-		inspectImpl(dupMethods{})
+		p.InspectImpl(dupMethods{})
 	})
 	uassert.PanicsWithMessage(t, cur, "upgrade: implementation must be comparable", func() {
-		inspectImpl(uncomparable{})
+		p.InspectImpl(uncomparable{})
 	})
+	candidate := p.InspectImpl(lifecycleOnly{})
+	uassert.Equal(t, 0, len(candidate.Calls)+len(candidate.Queries))
+	uassert.Equal(t, 0, len(candidate.MissingCalls)+len(candidate.MissingQueries))
+	candidate = p.InspectImpl(oneMethod{})
+	uassert.Equal(t, 1, len(candidate.Calls))
+	uassert.True(t, candidate.Calls[0] == (Method{Name: "Call", Schema: "v1"}))
+	uassert.Equal(t, 0, len(candidate.Queries)+len(candidate.MissingCalls)+len(candidate.MissingQueries))
 }
 
 type lifecycleOnly struct{}
 
-func (lifecycleOnly) Migrate(tx *Tx, c *Custody, from string) {}
+func (lifecycleOnly) Migrate(tx *Tx, c *Custody, from ImplRef) {}
 
 func TestLifecycleOnlyImplementation(cur realm, t *testing.T) {
 	p := NewProxy(0, cur, owner, 0)
