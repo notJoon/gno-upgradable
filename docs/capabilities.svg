@@ -51,7 +51,7 @@
 <circle cx="662" cy="505" r="3.5" fill="#000"/>
 <polygon points="650,490 538,490 538,479 512,505 538,531 538,520 650,520" fill="#fff36b" stroke="#b8a600" stroke-width="1.5"/>
 <text x="594.0" y="509" font-size="12" text-anchor="middle" fill="#000" font-weight="normal" font-family="Helvetica, Arial, sans-serif">any call</text>
-<text x="470" y="570" font-size="11" text-anchor="middle" fill="#555" font-weight="normal" font-family="Helvetica, Arial, sans-serif">still on chain, but holds no reference</text>
+<text x="470" y="570" font-size="11" text-anchor="middle" fill="#555" font-weight="normal" font-family="Helvetica, Arial, sans-serif">no write or asset capability, may retain a View</text>
 <text x="14" y="614" font-size="22" text-anchor="start" fill="#d93a2b" font-weight="bold" font-family="Helvetica, Arial, sans-serif">C</text>
 <text x="40" y="613" font-size="14" text-anchor="start" fill="#000" font-weight="bold" font-family="Helvetica, Arial, sans-serif">Contrast: passing the proxy's cur to implementations</text>
 <circle cx="100" cy="685" r="38" fill="#cdeb8b" stroke="#6b8e23" stroke-width="1.5"/>

@@ -85,15 +85,18 @@ methods, a migration and tests.
 
 ### String calls or typed entry points
 
-`Call` and `Query` carry a method name and one string argument, which is also
-all MsgCall can pass. The proxy checks the names against a grow-only API, so a
-new version adds methods without any change to the proxy. Prefer them.
+`Call` and `Query` deliberately give implementations a method name and one
+encoded string. This is a design choice, not a MsgCall limit: MsgCall accepts
+multiple primitive arguments. The proxy checks the names against a grow-only
+API, so a new version adds methods without any change to the proxy. Prefer this
+uniform envelope when it is sufficient.
 
 Use `Invoke` and `Inspect` when an entry point needs typed arguments, a standard
 token interface, or a callback. The proxy declares an interface that extends
 `upgrade.Impl`, like the AMM's `Pool`, and asserts the implementation to it.
 That interface is part of the proxy and cannot change, so keep it to what must
-be typed, and guard every entry point against reentry as the AMM does.
+be typed. If it makes callbacks, guard every entry point that can observe
+inconsistent application state or replace the implementation, as the AMM does.
 
 ## Upgrade lifecycle
 
@@ -110,10 +113,12 @@ be typed, and guard every entry point against reentry as the AMM does.
 
 ![Where the vault's data lives in three steps: v1 writes rows into the proxy's Store, an upgrade switches the implementation without moving rows, and v2 reads v1's rows and adds a table](docs/storage.svg)
 
-All persistent data lives in the proxy realm, which owns it and pays for its
-storage. Implementation realms hold no state. An upgrade does not move data: it
-changes which code reads and writes the proxy's `Store`, so v2 reads the rows v1
-wrote and adds new tables beside them.
+Application state in this pattern should live in the proxy realm, which owns it
+and pays for its storage. The example implementation realms hold no application
+state, but the package cannot prevent an implementation from using its own
+realm globals. An upgrade does not move proxy data: it changes which code reads
+and writes the proxy's `Store`, so v2 reads the rows v1 wrote and adds new tables
+beside them.
 
 The package authenticates the approved realm when it calls `Bootstrap`, but it
 cannot query whether an arbitrary package path is already deployed. The owner
@@ -145,33 +150,38 @@ call:
 - `Tx` and `Custody` hold the proxy's `cur` privately. Gno refuses to persist a
   realm value, so storing either handle aborts the transaction, and their
   methods reject use after the call. Revocation needs no bookkeeping: an
-  implementation the proxy no longer calls has nothing left to use.
-- Each handle grants only what it names. `View` reads, `Tx` writes the proxy's
-  tables, and `Custody` moves assets without returning the banker or teller it
-  builds.
+  implementation the proxy no longer calls retains no write or asset authority.
+- `View` grants read access without write authority. It carries no realm value
+  and may be retained after the call, so proxy state must not rely on being
+  hidden from a retired implementation.
+- Each handle grants only what it names. `Tx` writes the proxy's tables, and
+  `Custody` moves assets without returning the banker or teller it builds.
 - Handles cannot be forged. Opening one over the proxy requires the proxy's
   live `cur`, and a zero value declared elsewhere has no realm and refuses
   every call.
 
 ![Reference graph of the proxy, its implementations and their capabilities during a call, after an upgrade, and when the proxy's cur is passed instead](docs/capabilities.svg)
 
-A shows the references an implementation holds during a call. B shows that a
-retired implementation holds none. C shows what it would keep if it were given
-the proxy's `cur`.
+A shows the write and asset capabilities an implementation holds during a call.
+B shows that a retired implementation retains none of those capabilities,
+although it may retain a read-only `View`. C shows what it could keep if it were
+given the proxy's `cur`.
 
 This limits what a replaced implementation can do. It does not limit an
 approved implementation while it runs, as the next section explains.
 
 ## Security model
 
-As the previous section explains, the proxy owns all persistent authority and
-an implementation holds none between calls. State values are restricted to
-plain types for the same reason: a pointer an implementation allocated would
-stay writable by it.
+As the previous section explains, the proxy owns all persistent write and asset
+authority, and an implementation holds none of it between calls. A retained
+`View` may still read proxy state. State values are restricted to plain types so
+a pointer allocated by an implementation cannot remain writable after that
+implementation is replaced.
 
 An approved implementation is still fully trusted while it runs. It can change
-state and move every asset held by the proxy. The delay gives users time to
-audit and exit; it does not sandbox bad code.
+state, move every asset held by the proxy, and spend GRC20 allowances granted to
+the proxy. The delay gives users time to audit, revoke allowances, and exit; it
+does not sandbox bad code.
 
 The reverse limit also holds. An implementation can act outside the proxy only
 through what the proxy hands it: `Tx`, `Custody`, and anything a typed proxy
@@ -183,9 +193,10 @@ In particular:
 
 - Keep implementation values stateless. Store application state through `Tx`
   and hold assets through `Custody`.
-- `Custody` deliberately exposes token transfers but not approvals. A caller
-  can recover an implementation panic without running pure-package defers, so
-  this package cannot guarantee that an allowance is temporary.
+- `Custody.ApproveForCall` clears each allowance before a successful call or
+  migration returns. An on-chain cross-realm panic aborts the whole transaction;
+  `revive` is enabled only in tests in the pinned Gno release. Persistent
+  delegation needs a separate, explicitly tracked design.
 - Export parameterless `Prepare` and `Activate` functions. `Prepare` must pass a
   fixed implementation value; `Activate` registers that saved value.
 - `Methods` checks names and call/query placement only. Review argument,
