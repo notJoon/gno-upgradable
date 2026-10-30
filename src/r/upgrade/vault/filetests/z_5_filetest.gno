@@ -73,6 +73,7 @@ type noFees struct{ v1.Impl }
 
 func inspect(next upgrade.Impl) {
 	candidate := vault.InspectImpl(next)
+	println(candidate.Calls, candidate.Queries)
 	println(candidate.MissingCalls, candidate.MissingQueries)
 }
 
@@ -91,9 +92,7 @@ func main(cur realm) {
 
 	// InspectImpl returns both the candidate's declarations and what it lacks
 	// before approval.
-	candidate := vault.InspectImpl(noWithdraw{})
-	println(candidate.Calls, candidate.Queries)
-	println(candidate.MissingCalls, candidate.MissingQueries)
+	inspect(noWithdraw{})
 	inspect(moved{})
 	inspect(changedSchema{})
 
@@ -148,7 +147,9 @@ func main(cur realm) {
 // upgrade: unknown method Deposit
 // slice[(struct{("Deposit" string),("v1:void->void" string)} gno.land/p/upgrade/v0.Method)] slice[(struct{("BalanceOf" string),("v1:address->int64" string)} gno.land/p/upgrade/v0.Method)]
 // slice[(struct{("Withdraw" string),("v1:int64->void" string)} gno.land/p/upgrade/v0.Method)] (nil []gno.land/p/upgrade/v0.Method)
+// slice[(struct{("Deposit" string),("v1:void->void" string)} gno.land/p/upgrade/v0.Method),(struct{("Withdraw" string),("v1:int64->void" string)} gno.land/p/upgrade/v0.Method),(struct{("BalanceOf" string),("v1:address->int64" string)} gno.land/p/upgrade/v0.Method)] (nil []gno.land/p/upgrade/v0.Method)
 // (nil []gno.land/p/upgrade/v0.Method) slice[(struct{("BalanceOf" string),("v1:address->int64" string)} gno.land/p/upgrade/v0.Method)]
+// slice[(struct{("Deposit" string),("v1:void->void" string)} gno.land/p/upgrade/v0.Method),(struct{("Withdraw" string),("v2:json->void" string)} gno.land/p/upgrade/v0.Method)] slice[(struct{("BalanceOf" string),("v1:address->int64" string)} gno.land/p/upgrade/v0.Method)]
 // slice[(struct{("Withdraw" string),("v1:int64->void" string)} gno.land/p/upgrade/v0.Method)] (nil []gno.land/p/upgrade/v0.Method)
 // upgrade: next implementation lacks API methods: Call Withdraw [v1:int64->void]; to retire one, keep it and make it panic
 // upgrade: next is not the prepared implementation

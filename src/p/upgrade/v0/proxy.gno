@@ -334,15 +334,6 @@ func (p *Proxy) missing(meta implMeta) (calls, queries []Method) {
 	return minus(p.calls, meta.calls), minus(p.queries, meta.queries)
 }
 
-// Missing returns the API methods next does not answer, which Upgrade
-// refuses unless it is a rollback. It changes nothing, so an
-// implementation's tests can call it before the implementation is
-// approved, instead of finding out once the delay has passed.
-func (p *Proxy) Missing(next Impl) (calls, queries []Method) {
-	candidate := p.InspectImpl(next)
-	return candidate.MissingCalls, candidate.MissingQueries
-}
-
 // Approve, Cancel, Freeze and TransferOwnership take the proxy realm's
 // live cur and check its caller is the owner, so the realm forwards them
 // as is, with no check of its own. The realm must pass its own cur, not
