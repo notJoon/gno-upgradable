@@ -97,6 +97,12 @@ The proxy refuses method names missing from `Methods`, so `Call` here
 only sees `Inc`. See `src/r/upgrade/vault` for a complete example with coins,
 admin methods, a migration and tests.
 
+Before approval, `proxy.InspectImpl(next)` checks any `Impl` without changing
+proxy state. Its `Candidate` result contains the declared call and query
+methods plus any methods missing from the proxy's grow-only API. A typed-only
+implementation has empty declared lists. Inspection cannot authenticate the
+candidate's realm path or determine rollback status; `Upgrade` does that.
+
 ### String calls or typed entry points
 
 `Impl` contains only the lifecycle shared by every implementation: `Migrate`. `Dispatcher` adds the optional string `Call`/`Query` interface,

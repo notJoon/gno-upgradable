@@ -30,5 +30,6 @@ The upgrade state machine is an internal type of the package. Nothing outside `P
 ## Consequences
 
 - `Impl` only requires `Migrate`.
+- `InspectImpl` validates any implementation value and reports its declared and missing string API without changing proxy state. It cannot authenticate the candidate realm or identify a rollback, because only a crossing `Upgrade` call supplies that path.
 - Events no longer carry an implementation label, because Gno has no reflection to name a dynamic type. Observers read the approved realm's code to see which value it passes to `Upgrade`, then the code of that value's type.
 - A realm path that served before gets the rollback exception only for the same value, and a value gets it only from the realm that installed it.

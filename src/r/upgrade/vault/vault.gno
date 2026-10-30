@@ -82,6 +82,8 @@ func API() (calls, queries []upgrade.Method) { return proxy.API() }
 
 // Missing lists the API methods next lacks, so an implementation's tests
 // can check it before approval.
-func Missing(next upgrade.Dispatcher) (calls, queries []upgrade.Method) { return proxy.Missing(next) }
+func Missing(next upgrade.Impl) (calls, queries []upgrade.Method) { return proxy.Missing(next) }
+
+func InspectImpl(next upgrade.Impl) upgrade.Candidate { return proxy.InspectImpl(next) }
 
 func Render(path string) string { return proxy.Render(path) }

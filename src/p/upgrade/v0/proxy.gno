@@ -105,6 +105,13 @@ type implMeta struct {
 	calls, queries []Method
 }
 
+// Candidate is the declared and missing string API of an implementation.
+// Empty Calls and Queries describe a typed-only implementation.
+type Candidate struct {
+	Calls, Queries               []Method
+	MissingCalls, MissingQueries []Method
+}
+
 // Proxy is the state of an upgradable realm: who may become its
 // implementation, its Store, and the live implementation. The realm creates
 // it from init, keeps it in an unexported variable, and forwards its
@@ -175,7 +182,7 @@ func (p *Proxy) Upgrade(_ int, rlm realm, next Impl) {
 	p.u.assertAcceptable(0, rlm)
 	meta := p.pendingMeta
 	if p.pending == nil {
-		meta = inspectImpl(next)
+		meta = inspectMeta(next)
 		p.assertAPI(meta, false)
 	} else if next != p.pending {
 		panic("upgrade: next is not the prepared implementation")
@@ -198,7 +205,7 @@ func (p *Proxy) Upgrade(_ int, rlm realm, next Impl) {
 
 func (p *Proxy) prepare(_ int, rlm realm, next Impl) {
 	p.u.assertPreparable(0, rlm)
-	meta := inspectImpl(next)
+	meta := inspectMeta(next)
 	rollback := p.isRollback(p.u.Approved(), next)
 	p.assertAPI(meta, rollback)
 	p.u.prepare(0, rlm, "rollback", strconv.FormatBool(rollback))
@@ -307,14 +314,27 @@ func (p *Proxy) Methods() (calls, queries []Method) {
 // API returns every method descriptor any implementation has served.
 func (p *Proxy) API() (calls, queries []Method) { return p.calls, p.queries }
 
+// InspectImpl checks next exactly as Upgrade does and returns its declared
+// string API and the methods it lacks from the proxy's API. It changes no
+// proxy state. The candidate's realm path is authenticated only by Upgrade,
+// so inspection cannot determine whether it is a rollback.
+func (p *Proxy) InspectImpl(next Impl) Candidate {
+	meta := inspectMeta(next)
+	return Candidate{
+		Calls:          meta.calls,
+		Queries:        meta.queries,
+		MissingCalls:   minus(p.calls, meta.calls),
+		MissingQueries: minus(p.queries, meta.queries),
+	}
+}
+
 // Missing returns the API methods next does not answer, which Upgrade
 // refuses unless it is a rollback. It changes nothing, so an
 // implementation's tests can call it before the implementation is
 // approved, instead of finding out once the delay has passed.
-func (p *Proxy) Missing(next Dispatcher) (calls, queries []Method) {
-	nextCalls, nextQueries := next.Methods()
-	validateMethods(nextCalls, nextQueries)
-	return minus(p.calls, nextCalls), minus(p.queries, nextQueries)
+func (p *Proxy) Missing(next Impl) (calls, queries []Method) {
+	candidate := p.InspectImpl(next)
+	return candidate.MissingCalls, candidate.MissingQueries
 }
 
 // Approve, Cancel, Freeze and TransferOwnership take the proxy realm's
@@ -370,7 +390,7 @@ func (p *Proxy) clearPending() {
 
 // isRollback reports whether the realm at path has installed next before.
 // Matching the value alone is not enough: another realm can declare a zero
-// value of an exported implementation type. inspectImpl has checked every
+// value of an exported implementation type. inspectMeta has checked every
 // value here is comparable.
 func (p *Proxy) isRollback(path string, next Impl) bool {
 	for _, s := range p.served {
@@ -452,8 +472,8 @@ func containsName(list []Method, name string) bool {
 	return false
 }
 
-// inspectImpl checks impl and copies its method lists.
-func inspectImpl(impl Impl) implMeta {
+// inspectMeta checks impl and copies its method lists.
+func inspectMeta(impl Impl) implMeta {
 	if impl == nil {
 		panic("upgrade: nil implementation")
 	}

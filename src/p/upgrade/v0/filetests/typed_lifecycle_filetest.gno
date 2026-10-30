@@ -84,6 +84,8 @@ func main(cur realm) {
 	testing.SetRealm(testing.NewUserRealm(admin))
 	add(cross(cur))
 	println(value())
+	candidate := proxy.InspectImpl(v2{})
+	println("typed candidate:", len(candidate.Calls), len(candidate.Queries), len(candidate.MissingCalls), len(candidate.MissingQueries))
 
 	approve(cross(cur), path)
 	print(proxy.Render(""))
@@ -112,6 +114,7 @@ func main(cur realm) {
 // Output:
 // bootstrap from empty
 // 1
+// typed candidate: 0 0 0 0
 // > [!WARNING]
 // > Upgrade approved: `gno.land/r/demo/main`. Its delay of 1 blocks starts when it calls Upgrade.
 //
