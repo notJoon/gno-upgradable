@@ -59,6 +59,7 @@ func Prepare(cur realm, next Pool) {
 // Register is called by the approved implementation realm to take over.
 // Taking a Pool makes the compiler check the typed entry points.
 func Register(cur realm, next Pool) {
+	defer enter()()
 	proxy.Register(0, cur, next)
 }
 
