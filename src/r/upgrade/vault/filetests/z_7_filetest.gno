@@ -78,6 +78,14 @@ func main(cur realm) {
 //       {
 //         "key": "rollback",
 //         "value": "false"
+//       },
+//       {
+//         "key": "implementation",
+//         "value": "gno.land/r/upgrade/vault/v1:impl"
+//       },
+//       {
+//         "key": "manifestHash",
+//         "value": "c38ec23a0e648120e5ef8fbc07464c1e5926b02e23c47f2f5a35189b41210fc6"
 //       }
 //     ],
 //     "pkg_path": "gno.land/p/upgrade/v0"
@@ -136,6 +144,14 @@ func main(cur realm) {
 //       {
 //         "key": "eta",
 //         "value": "17403"
+//       },
+//       {
+//         "key": "implementation",
+//         "value": "gno.land/r/upgrade/vault/v2:impl"
+//       },
+//       {
+//         "key": "manifestHash",
+//         "value": "40cbdd911e898cb6d68914e6620c697becaeb64173f39ced79336301bce4be3e"
 //       }
 //     ],
 //     "pkg_path": "gno.land/p/upgrade/v0"

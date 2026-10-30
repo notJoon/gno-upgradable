@@ -34,9 +34,11 @@ type impl struct {
 	v1.Impl
 }
 
-func (i impl) Methods() (calls, queries []string) {
+func (impl) ID() string { return "gno.land/r/upgrade/vault/v2:impl" }
+
+func (i impl) Methods() (calls, queries []upgrade.Method) {
 	calls, queries = i.Impl.Methods()
-	return append(calls, "CollectFees"), queries
+	return append(calls, upgrade.Method{Name: "CollectFees", Schema: "v1:void->void"}), queries
 }
 
 func (i impl) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) string {

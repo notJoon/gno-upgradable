@@ -18,22 +18,49 @@ import (
 // noWithdraw drops Withdraw.
 type noWithdraw struct{ v1.Impl }
 
-func (noWithdraw) Methods() (calls, queries []string) {
-	return []string{"Deposit"}, []string{"BalanceOf"}
+func (noWithdraw) ID() string { return "gno.land/r/demo/main:no-withdraw" }
+
+func (noWithdraw) Methods() (calls, queries []upgrade.Method) {
+	return []upgrade.Method{{Name: "Deposit", Schema: "v1:void->void"}},
+		[]upgrade.Method{{Name: "BalanceOf", Schema: "v1:address->int64"}}
 }
 
 // moved turns the BalanceOf query into a call.
 type moved struct{ v1.Impl }
 
-func (moved) Methods() (calls, queries []string) {
-	return []string{"Deposit", "Withdraw", "BalanceOf"}, nil
+func (moved) ID() string { return "gno.land/r/demo/main:moved" }
+
+func (moved) Methods() (calls, queries []upgrade.Method) {
+	return []upgrade.Method{
+		{Name: "Deposit", Schema: "v1:void->void"},
+		{Name: "Withdraw", Schema: "v1:int64->void"},
+		{Name: "BalanceOf", Schema: "v1:address->int64"},
+	}, nil
+}
+
+// changedSchema keeps Withdraw's name but changes its caller contract.
+type changedSchema struct{ v1.Impl }
+
+func (changedSchema) ID() string { return "gno.land/r/demo/main:changed-schema" }
+
+func (changedSchema) Methods() (calls, queries []upgrade.Method) {
+	return []upgrade.Method{
+		{Name: "Deposit", Schema: "v1:void->void"},
+		{Name: "Withdraw", Schema: "v2:json->void"},
+	}, []upgrade.Method{{Name: "BalanceOf", Schema: "v1:address->int64"}}
 }
 
 // retired keeps CollectFees listed but retires it.
 type retired struct{ v1.Impl }
 
-func (retired) Methods() (calls, queries []string) {
-	return []string{"Deposit", "Withdraw", "CollectFees"}, []string{"BalanceOf"}
+func (retired) ID() string { return "gno.land/r/demo/main:retired" }
+
+func (retired) Methods() (calls, queries []upgrade.Method) {
+	return []upgrade.Method{
+		{Name: "Deposit", Schema: "v1:void->void"},
+		{Name: "Withdraw", Schema: "v1:int64->void"},
+		{Name: "CollectFees", Schema: "v1:void->void"},
+	}, []upgrade.Method{{Name: "BalanceOf", Schema: "v1:address->int64"}}
 }
 
 func (r retired) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) string {
@@ -52,6 +79,8 @@ func approve(cur realm, path string) {
 // noFees is v1 as a new implementation: it lacks v2's CollectFees.
 type noFees struct{ v1.Impl }
 
+func (noFees) ID() string { return "gno.land/r/demo/main:no-fees" }
+
 func main(cur realm) {
 	alice := testutils.TestAddress("alice")
 	self := testing.NewCodeRealm("gno.land/r/demo/main")
@@ -59,6 +88,7 @@ func main(cur realm) {
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
 	v1.Bootstrap(cross(cur))
 	println(vault.Methods())
+	println("identity:", vault.ImplID(), len(vault.ManifestHash()))
 
 	// Unlisted names are refused before the implementation runs.
 	testing.SetRealm(testing.NewUserRealm(alice))
@@ -68,11 +98,13 @@ func main(cur realm) {
 	// Missing tells an implementation what it lacks before approval.
 	println(vault.Missing(noWithdraw{}))
 	println(vault.Missing(moved{}))
+	println(vault.Missing(changedSchema{}))
 
 	// Register activates the exact implementation saved by Prepare.
 	approve(cur, "gno.land/r/demo/main")
 	testing.SetRealm(self)
 	vault.Prepare(cross(cur), noFees{})
+	println("pending identity:", vault.PendingImplID(), vault.PendingManifestHash() != "")
 	testing.SkipHeights(vault.UpgradeDelay)
 	vault.Register(cross(cur))
 	println("impl:", vault.ImplPath())
@@ -93,6 +125,9 @@ func main(cur realm) {
 
 	approve(cur, "gno.land/r/demo/main")
 	testing.SetRealm(self)
+	// A realm path that served before gets the rollback exception only for
+	// the same implementation ID.
+	println(revive(func() { vault.Prepare(cross(cur), noWithdraw{}) }))
 	vault.Prepare(cross(cur), retired{})
 	testing.SkipHeights(vault.UpgradeDelay)
 	// Retiring keeps the name and fails with a reason.
@@ -103,14 +138,18 @@ func main(cur realm) {
 }
 
 // Output:
-// slice[("Deposit" string),("Withdraw" string)] slice[("BalanceOf" string)]
+// slice[(struct{("Deposit" string),("v1:void->void" string)} gno.land/p/upgrade/v0.Method),(struct{("Withdraw" string),("v1:int64->void" string)} gno.land/p/upgrade/v0.Method)] slice[(struct{("BalanceOf" string),("v1:address->int64" string)} gno.land/p/upgrade/v0.Method)]
+// identity: gno.land/r/upgrade/vault/v1:impl 64
 // upgrade: unknown method BalanceOf
 // upgrade: unknown method Deposit
-// slice[("Withdraw" string)] (nil []string)
-// (nil []string) slice[("BalanceOf" string)]
+// slice[(struct{("Withdraw" string),("v1:int64->void" string)} gno.land/p/upgrade/v0.Method)] (nil []gno.land/p/upgrade/v0.Method)
+// (nil []gno.land/p/upgrade/v0.Method) slice[(struct{("BalanceOf" string),("v1:address->int64" string)} gno.land/p/upgrade/v0.Method)]
+// slice[(struct{("Withdraw" string),("v1:int64->void" string)} gno.land/p/upgrade/v0.Method)] (nil []gno.land/p/upgrade/v0.Method)
+// pending identity: gno.land/r/demo/main:no-fees true
 // impl: gno.land/r/demo/main
 // impl: gno.land/r/upgrade/vault/v1
-// slice[("Deposit" string),("Withdraw" string)] slice[("BalanceOf" string)]
-// slice[("Deposit" string),("Withdraw" string),("CollectFees" string)] slice[("BalanceOf" string)]
+// slice[(struct{("Deposit" string),("v1:void->void" string)} gno.land/p/upgrade/v0.Method),(struct{("Withdraw" string),("v1:int64->void" string)} gno.land/p/upgrade/v0.Method)] slice[(struct{("BalanceOf" string),("v1:address->int64" string)} gno.land/p/upgrade/v0.Method)]
+// slice[(struct{("Deposit" string),("v1:void->void" string)} gno.land/p/upgrade/v0.Method),(struct{("Withdraw" string),("v1:int64->void" string)} gno.land/p/upgrade/v0.Method),(struct{("CollectFees" string),("v1:void->void" string)} gno.land/p/upgrade/v0.Method)] slice[(struct{("BalanceOf" string),("v1:address->int64" string)} gno.land/p/upgrade/v0.Method)]
+// upgrade: next implementation lacks API methods: Call Withdraw [v1:int64->void], Call CollectFees [v1:void->void]; to retire one, keep it and make it panic
 // impl: gno.land/r/demo/main
 // vault: CollectFees was retired

@@ -53,6 +53,8 @@ import (
 
 type impl struct{ v1.Impl }
 
+func (impl) ID() string { return "gno.land/r/upgrade/amm/v2:impl" }
+
 func Setup(cur realm) {
 	pool := chain.PackageAddress("gno.land/r/upgrade/amm")
 	testtoken.Faucet(cross(cur), 2000)

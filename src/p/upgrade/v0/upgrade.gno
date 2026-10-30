@@ -200,9 +200,13 @@ func (u *Upgrader) assertOwner(_ int, rlm realm) {
 // the approved realm's own Prepare, and a second call must not push the ETA
 // back.
 func (u *Upgrader) Prepare(_ int, rlm realm) {
+	u.prepare(0, rlm)
+}
+
+func (u *Upgrader) prepare(_ int, rlm realm, attrs ...string) {
 	u.assertPreparable(0, rlm)
 	u.eta, u.prepared = addDelay(runtime.ChainHeight(), u.delay), true
-	u.emit("UpgradePrepared", "pkgPath", u.approved, "eta", strconv.FormatInt(u.eta, 10))
+	u.emit("UpgradePrepared", append([]string{"pkgPath", u.approved, "eta", strconv.FormatInt(u.eta, 10)}, attrs...)...)
 }
 
 func addDelay(height, delay int64) int64 {
@@ -225,9 +229,13 @@ func (u *Upgrader) assertPreparable(_ int, rlm realm) {
 // holding realm's live cur, and its caller must be the approved realm,
 // once the delay has passed.
 func (u *Upgrader) Accept(_ int, rlm realm) {
+	u.accept(0, rlm, u.IsRollback())
+}
+
+func (u *Upgrader) accept(_ int, rlm realm, rollback bool, attrs ...string) {
 	caller := u.assertAcceptable(0, rlm)
-	rollback := u.IsRollback()
-	u.emit("Upgraded", "from", u.pkgPath, "to", caller, "rollback", strconv.FormatBool(rollback))
+	eventAttrs := []string{"from", u.pkgPath, "to", caller, "rollback", strconv.FormatBool(rollback)}
+	u.emit("Upgraded", append(eventAttrs, attrs...)...)
 	if !rollback {
 		u.served = append(u.served, caller)
 	}

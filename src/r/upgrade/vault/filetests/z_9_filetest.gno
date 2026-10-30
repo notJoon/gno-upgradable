@@ -7,6 +7,7 @@ package main
 import (
 	"testing"
 
+	"gno.land/p/upgrade/v0"
 	"gno.land/r/upgrade/vault"
 	v1 "gno.land/r/upgrade/vault/v1"
 	v2 "gno.land/r/upgrade/vault/v2"
@@ -15,8 +16,14 @@ import (
 // v3 answers the whole API v2 left.
 type v3 struct{ v1.Impl }
 
-func (v3) Methods() (calls, queries []string) {
-	return []string{"Deposit", "Withdraw", "CollectFees"}, []string{"BalanceOf"}
+func (v3) ID() string { return "gno.land/r/demo/main:v3" }
+
+func (v3) Methods() (calls, queries []upgrade.Method) {
+	return []upgrade.Method{
+		{Name: "Deposit", Schema: "v1:void->void"},
+		{Name: "Withdraw", Schema: "v1:int64->void"},
+		{Name: "CollectFees", Schema: "v1:void->void"},
+	}, []upgrade.Method{{Name: "BalanceOf", Schema: "v1:address->int64"}}
 }
 
 func approve(cur realm, path string) {

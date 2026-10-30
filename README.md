@@ -29,20 +29,25 @@ const admin address = "g1..."
 
 var proxy *upgrade.Proxy
 
+type Implementation interface {
+	upgrade.Dispatcher
+	upgrade.Renderer
+}
+
 func init(cur realm) {
 	proxy = upgrade.NewProxy(0, cur, admin, 17280) // delay in blocks
 }
 
 func Approve(cur realm, pkgPath string)          { proxy.Approve(0, cur, pkgPath) }
-func Bootstrap(cur realm, first upgrade.Impl)    { proxy.Bootstrap(0, cur, first) }
-func Prepare(cur realm, next upgrade.Impl)       { proxy.Prepare(0, cur, next) }
+func Bootstrap(cur realm, first Implementation)  { proxy.Bootstrap(0, cur, first) }
+func Prepare(cur realm, next Implementation)     { proxy.Prepare(0, cur, next) }
 func Register(cur realm)                         { proxy.Register(0, cur) }
 func Call(cur realm, method, args string) string { return proxy.Call(0, cur, method, args) }
 func Query(method, args string) string           { return proxy.Query(method, args) }
 func Render(path string) string                  { return proxy.Render(path) }
 ```
 
-Each implementation realm provides an `upgrade.Impl` value and registers itself
+Each implementation realm provides an implementation value and registers itself
 with parameterless crossing functions:
 
 ```go
@@ -62,7 +67,12 @@ func Activate(cur realm)  { proxy.Register(cross(cur)) }          // after the d
 
 type Impl struct{}
 
-func (Impl) Methods() (calls, queries []string) { return []string{"Inc"}, []string{"Get"} }
+func (Impl) ID() string { return "gno.land/r/you/app/v1:impl" }
+
+func (Impl) Methods() (calls, queries []upgrade.Method) {
+	return []upgrade.Method{{Name: "Inc", Schema: "v1:void->void"}},
+		[]upgrade.Method{{Name: "Get", Schema: "v1:address->int64"}}
+}
 
 func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {}
 
@@ -79,24 +89,36 @@ func (Impl) Query(v upgrade.View, method, args string) string {
 func (Impl) Render(v upgrade.View, path string) string { return "# App\n" }
 ```
 
-The proxy refuses method names missing from `Methods`, so `Call` here only sees
-`Inc`. See `src/r/upgrade/vault` for a complete example with coins, admin
-methods, a migration and tests.
+The proxy refuses method descriptors missing from `Methods`, so `Call` here
+only sees `Inc`. See `src/r/upgrade/vault` for a complete example with coins,
+admin methods, a migration and tests.
 
 ### String calls or typed entry points
 
-`Call` and `Query` deliberately give implementations a method name and one
-encoded string. This is a design choice, not a MsgCall limit: MsgCall accepts
-multiple primitive arguments. The proxy checks the names against a grow-only
-API, so a new version adds methods without any change to the proxy. Prefer this
+`Impl` contains only the lifecycle shared by every implementation: a stable ID
+and `Migrate`. `Dispatcher` adds the optional string `Call`/`Query` interface,
+and `Renderer` independently adds `Render`. A typed-only proxy can therefore
+embed `Impl` without implementing unused string or rendering methods.
+
+`Call` and `Query` deliberately give dispatchers a method name and one encoded
+string. This is a design choice, not a MsgCall limit: MsgCall accepts multiple
+primitive arguments. Each `Method` pairs the selector with an opaque schema ID.
+The proxy compares both fields against a grow-only API, so changing an argument
+or result encoding requires a new selector such as `WithdrawV2`. Prefer this
 uniform envelope when it is sufficient.
 
 Use `Invoke` and `Inspect` when an entry point needs typed arguments, a standard
-token interface, or a callback. The proxy declares an interface that extends
-`upgrade.Impl`, like the AMM's `Pool`, and asserts the implementation to it.
-That interface is part of the proxy and cannot change, so keep it to what must
-be typed. If it makes callbacks, guard every entry point that can observe
-inconsistent application state or replace the implementation, as the AMM does.
+token interface, or a callback. The proxy declares an interface that embeds the
+needed upgrade capabilities, like the AMM's `Pool`, and asserts the
+implementation to it. That interface is part of the proxy and cannot change,
+so keep it to what must be typed. If it makes callbacks, guard every entry point
+that can observe inconsistent application state or replace the implementation,
+as the AMM does.
+
+`Prepare` records the implementation ID and a SHA-256 fingerprint of its
+dispatcher manifest and optional renderer capability. `Register` refuses the
+activation if either changed during the delay. Proxies can expose `ImplID`,
+`PendingImplID`, `ManifestHash`, and `PendingManifestHash` for monitoring.
 
 ## Upgrade lifecycle
 
@@ -108,8 +130,8 @@ inconsistent application state or replace the implementation, as the AMM does.
 4. The approved realm calls `Prepare`. This checks the grow-only method API and
    starts the full delay only after the code exists on-chain.
 5. At or after `ETA`, the same realm calls parameterless `Register`. The proxy
-   activates the exact implementation saved by `Prepare` and calls `Migrate`
-   in the same transaction.
+   verifies the saved implementation ID and manifest hash, activates the value
+   saved by `Prepare`, and calls `Migrate` in the same transaction.
 
 ![Where the vault's data lives in three steps: v1 writes rows into the proxy's Store, an upgrade switches the implementation without moving rows, and v2 reads v1's rows and adds a table](docs/storage.svg)
 
@@ -127,9 +149,10 @@ invariant for the first implementation.
 
 The owner may cancel a pending upgrade. `Freeze` permanently disables future
 upgrades without disabling implementation-level admin methods. A rollback is
-the same delayed lifecycle applied to a previously served implementation.
-Ownership transfer completes only after the nominated address calls
-`AcceptOwnership` through the proxy's corresponding forwarding function.
+the same delayed lifecycle applied to a previously served realm path and
+implementation ID pair. Ownership transfer completes only after the nominated
+address calls `AcceptOwnership` through the proxy's corresponding forwarding
+function.
 
 ## Why object capabilities
 
@@ -191,16 +214,18 @@ or another protocol, needs a new proxy. Decide those calls before deploying.
 
 In particular:
 
-- Keep implementation values stateless. Store application state through `Tx`
-  and hold assets through `Custody`.
+- Keep implementation values stateless. Give every concrete implementation a
+  stable, unique `ID`; store application state through `Tx` and hold assets
+  through `Custody`.
 - `Custody.ApproveForCall` clears each allowance before a successful call or
   migration returns. An on-chain cross-realm panic aborts the whole transaction;
   `revive` is enabled only in tests in the pinned Gno release. Persistent
   delegation needs a separate, explicitly tracked design.
 - Export parameterless `Prepare` and `Activate` functions. `Prepare` must pass a
   fixed implementation value; `Activate` registers that saved value.
-- `Methods` checks names and call/query placement only. Review argument,
-  result, authorization, and semantic compatibility separately.
+- `Methods` checks selector, schema ID, and call/query placement. Review
+  authorization and semantic compatibility separately; a schema ID is a
+  commitment chosen by the implementation, not a generated ABI.
 - Add tables when changing schemas. An in-place row-format change can make an
   old implementation unable to read state after rollback.
 - A typed proxy that makes callbacks must lock every entry point that can read
@@ -209,10 +234,11 @@ In particular:
 - Keep retired method names and return a clear panic. Only a rollback may
   temporarily leave a previously served method unavailable.
 
-Every upgrade event includes the proxy realm in a `realm` attribute. `Render`
-also prepends a pending-upgrade, rollback, or freeze banner that implementations
-cannot hide. Production monitoring should consume the events rather than rely
-on users opening the rendered page.
+Every upgrade event includes the proxy realm in a `realm` attribute.
+`UpgradePrepared` and `Upgraded` also include the concrete implementation ID
+and manifest hash. `Render` prepends a pending-upgrade, rollback, or freeze
+banner that implementations cannot hide. Production monitoring should consume
+the events rather than rely on users opening the rendered page.
 
 ## Development
 
@@ -242,5 +268,5 @@ Before deploying a proxy:
 - test activation, cancellation, ownership transfer, freeze, migration,
   rollback, unexpected coins, and retained-handle rejection;
 - test callback and asset flows on a real node, not only with filetests; and
-- audit both the approved realm and the concrete implementation type it passes
-  to `Prepare`.
+- audit the approved realm, the concrete implementation type it passes to
+  `Prepare`, and the emitted implementation ID and manifest hash.

@@ -15,6 +15,8 @@ import (
 
 type next struct{ v1.Impl }
 
+func (next) ID() string { return "gno.land/r/demo/main:migration-approval" }
+
 func (next) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {
 	c.ApproveForCall(testtoken.A, chain.PackageAddress("gno.land/r/demo/main"), 100)
 }

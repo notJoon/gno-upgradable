@@ -95,3 +95,44 @@ func TestStore(cur realm, t *testing.T) {
 	b[0] = 'y'
 	uassert.Equal(t, "x", string(v.Get("t", "b").([]byte)))
 }
+
+type metadataImpl struct {
+	id      string
+	schema  string
+	methods []Method
+}
+
+func (i metadataImpl) ID() string                            { return i.id }
+func (metadataImpl) Migrate(tx *Tx, c *Custody, from string) {}
+func (i metadataImpl) Methods() (calls, queries []Method) {
+	if i.methods != nil {
+		return i.methods, nil
+	}
+	return []Method{{Name: "Call", Schema: i.schema}}, nil
+}
+func (metadataImpl) Call(tx *Tx, c *Custody, method, args string) string { return "" }
+func (metadataImpl) Query(v View, method, args string) string            { return "" }
+
+func TestImplementationMetadata(cur realm, t *testing.T) {
+	id, hash := inspectImpl(metadataImpl{id: "example:v1", schema: "v1:string->string"})
+	uassert.Equal(t, "example:v1", id)
+	uassert.Equal(t, 64, len(hash))
+
+	_, sameManifest := inspectImpl(metadataImpl{id: "example:v2", schema: "v1:string->string"})
+	uassert.Equal(t, hash, sameManifest)
+	_, changedManifest := inspectImpl(metadataImpl{id: "example:v1", schema: "v2:string->string"})
+	uassert.NotEqual(t, hash, changedManifest)
+
+	uassert.PanicsWithMessage(t, cur, "upgrade: invalid implementation ID", func() {
+		inspectImpl(metadataImpl{id: "Example", schema: "v1"})
+	})
+	uassert.PanicsWithMessage(t, cur, "upgrade: duplicate Call method Call", func() {
+		inspectImpl(metadataImpl{
+			id: "example:v1",
+			methods: []Method{
+				{Name: "Call", Schema: "v1"},
+				{Name: "Call", Schema: "v2"},
+			},
+		})
+	})
+}
