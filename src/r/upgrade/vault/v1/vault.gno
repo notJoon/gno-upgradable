@@ -27,7 +27,7 @@ type Impl struct{}
 
 var _ proxy.Implementation = Impl{}
 
-func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {}
+func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from upgrade.ImplRef) {}
 
 func (Impl) Methods() (calls, queries []upgrade.Method) {
 	return []upgrade.Method{

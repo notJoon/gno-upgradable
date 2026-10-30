@@ -98,7 +98,7 @@ func TestStore(cur realm, t *testing.T) {
 
 type dupMethods struct{}
 
-func (dupMethods) Migrate(tx *Tx, c *Custody, from string) {}
+func (dupMethods) Migrate(tx *Tx, c *Custody, from ImplRef) {}
 func (dupMethods) Methods() (calls, queries []Method) {
 	return []Method{{Name: "Call", Schema: "v1"}, {Name: "Call", Schema: "v2"}}, nil
 }
@@ -107,7 +107,7 @@ func (dupMethods) Query(v View, method, args string) string            { return 
 
 type uncomparable struct{ xs []int }
 
-func (uncomparable) Migrate(tx *Tx, c *Custody, from string) {}
+func (uncomparable) Migrate(tx *Tx, c *Custody, from ImplRef) {}
 
 func TestInspectImpl(cur realm, t *testing.T) {
 	uassert.PanicsWithMessage(t, cur, "upgrade: duplicate Call method Call", func() {
@@ -120,7 +120,7 @@ func TestInspectImpl(cur realm, t *testing.T) {
 
 type lifecycleOnly struct{}
 
-func (lifecycleOnly) Migrate(tx *Tx, c *Custody, from string) {}
+func (lifecycleOnly) Migrate(tx *Tx, c *Custody, from ImplRef) {}
 
 func TestLifecycleOnlyImplementation(cur realm, t *testing.T) {
 	p := NewProxy(0, cur, owner, 0)

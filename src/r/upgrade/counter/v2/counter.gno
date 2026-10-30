@@ -21,7 +21,7 @@ type Impl struct{ v1.Impl }
 
 var _ proxy.Counter = Impl{}
 
-func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {
+func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from upgrade.ImplRef) {
 	var total int64
 	tx.View().Iterate(v1.Counts, "", "", func(_ string, value any) bool {
 		total += value.(int64)

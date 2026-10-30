@@ -17,6 +17,8 @@ The value alone is not enough. Another realm cannot write a composite literal of
 
 A rollback is a pair that served before. Upgrade installs only the value it saved when the delay started. Method lists are copied when a value is checked, and calls route through that copy, so nothing needs to be fingerprinted.
 
+`Migrate` receives the previous pair as an `ImplRef`. Its zero value marks the first installation. Later implementations can inspect the previous realm path or compare the full pair with a known implementation value, so one realm can serve several values without making their migrations ambiguous. A realm that wants another realm to compare one of its realm-declared values must export a function that returns that value, because the other realm cannot construct it directly.
+
 Implementation values should be value types such as an empty struct. A value holding a slice, map, or func is refused with a clear error. A pointer compares by address, so a fresh pointer on each call never matches the saved one.
 
 ## Lifecycle

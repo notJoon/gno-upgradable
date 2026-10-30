@@ -19,7 +19,32 @@ const (
 // struct. A value holding a slice, map or func is refused, and a pointer
 // compares by address, so a fresh pointer on each call never matches.
 type Impl interface {
-	Migrate(tx *Tx, c *Custody, from string)
+	Migrate(tx *Tx, c *Custody, from ImplRef)
+}
+
+// ImplRef identifies an implementation by the realm that installed it and the
+// value it installed. Migrate receives the zero value when the proxy is first
+// bootstrapped and the previous implementation on every later transition.
+//
+// Use Empty to recognize bootstrap, Path to branch by realm, and Is when two
+// values from the same realm need different migrations. A different realm
+// cannot construct a realm-declared value; if it needs to call Is for one, the
+// declaring realm must export a function that returns the value.
+type ImplRef struct {
+	path string
+	impl Impl
+}
+
+func (r ImplRef) Empty() bool  { return r.impl == nil }
+func (r ImplRef) Path() string { return r.path }
+
+// Is reports whether r names the given realm and implementation value.
+func (r ImplRef) Is(path string, impl Impl) bool {
+	if r.impl == nil || impl == nil {
+		return false
+	}
+	assertComparable(impl)
+	return r.path == path && r.impl == impl
 }
 
 // Method identifies one string-dispatched method and the schema its callers
@@ -102,7 +127,7 @@ type implMeta struct {
 //
 // Rolling back changes code, not state:
 //   - The old implementation's Migrate runs with from set to the newer
-//     path, and must accept it. A Migrate that allows only specific
+//     implementation, and must accept it. A Migrate that allows only specific
 //     predecessors blocks the rollback.
 //   - Tables the newer version added stay in the Store. The old version
 //     ignores them, and rolling forward again finds them intact.
@@ -121,15 +146,7 @@ type Proxy struct {
 	calls, queries []Method
 
 	activeMeta, pendingMeta implMeta
-	served                  []servedImpl
-}
-
-// servedImpl is a realm path and the value it installed. The chain
-// authenticates the path as the caller, and the value's type decides the code
-// that runs, so together they name an implementation.
-type servedImpl struct {
-	path string
-	impl Impl
+	served                  []ImplRef
 }
 
 // NewProxy returns an empty proxy held by the realm whose live cur is rlm.
@@ -165,14 +182,14 @@ func (p *Proxy) Upgrade(_ int, rlm realm, next Impl) {
 	}
 	path := p.u.Approved()
 	rollback := p.isRollback(path, next)
-	from := p.u.PkgPath()
+	from := ImplRef{path: p.u.PkgPath(), impl: p.impl}
 	p.u.accept(0, rlm, rollback)
 	p.impl, p.activeMeta = next, meta
 	p.clearPending()
 	p.calls = union(p.calls, meta.calls)
 	p.queries = union(p.queries, meta.queries)
 	if !rollback {
-		p.served = append(p.served, servedImpl{path: path, impl: next})
+		p.served = append(p.served, ImplRef{path: path, impl: next})
 	}
 	c := NewCustody(0, rlm)
 	next.Migrate(p.store.Begin(0, rlm), c, from)
