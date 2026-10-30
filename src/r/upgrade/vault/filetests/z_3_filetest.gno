@@ -15,6 +15,7 @@ type fake struct{ v1.Impl }
 
 func main(cur realm) {
 	alice := testutils.TestAddress("alice")
+	bob := testutils.TestAddress("bob")
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	println(revive(func() { vault.Freeze(cross(cur)) }))
 	v1.Bootstrap(cross(cur))
@@ -38,6 +39,11 @@ func main(cur realm) {
 	// The admin role still moves, for implementations that gate on it.
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.TransferAdmin(cross(cur), alice)
+	println("admin unchanged:", vault.Admin() == vault.Admin0)
+	testing.SetRealm(testing.NewUserRealm(bob))
+	println(revive(func() { vault.AcceptAdmin(cross(cur)) }))
+	testing.SetRealm(testing.NewUserRealm(alice))
+	vault.AcceptAdmin(cross(cur))
 	println("admin is alice:", vault.Admin() == alice)
 }
 
@@ -49,4 +55,6 @@ func main(cur realm) {
 // upgrade: upgrades are frozen
 // upgrade: caller is not the approved implementation
 // impl: gno.land/r/upgrade/vault/v1
+// admin unchanged: true
+// upgrade: caller is not the pending owner
 // admin is alice: true

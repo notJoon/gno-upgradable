@@ -278,12 +278,14 @@ func (p *Proxy) Freeze(_ int, rlm realm) {
 func (p *Proxy) TransferOwnership(_ int, rlm realm, next address) {
 	p.u.TransferOwnership(0, rlm, next)
 }
+func (p *Proxy) AcceptOwnership(_ int, rlm realm) { p.u.AcceptOwnership(0, rlm) }
 
-func (p *Proxy) Owner() address   { return p.u.Owner() }
-func (p *Proxy) Frozen() bool     { return p.u.Frozen() }
-func (p *Proxy) ImplPath() string { return p.u.PkgPath() }
-func (p *Proxy) Approved() string { return p.u.Approved() }
-func (p *Proxy) ETA() int64       { return p.u.ETA() }
+func (p *Proxy) Owner() address        { return p.u.Owner() }
+func (p *Proxy) PendingOwner() address { return p.u.PendingOwner() }
+func (p *Proxy) Frozen() bool          { return p.u.Frozen() }
+func (p *Proxy) ImplPath() string      { return p.u.PkgPath() }
+func (p *Proxy) Approved() string      { return p.u.Approved() }
+func (p *Proxy) ETA() int64            { return p.u.ETA() }
 
 func (p *Proxy) current() Impl {
 	if p.impl == nil {

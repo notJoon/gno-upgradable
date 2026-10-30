@@ -8,15 +8,16 @@ import (
 )
 
 const (
-	ErrInvalidPath   = "upgrade: approved path must be a realm path without a subpath"
-	ErrSpoofedRealm  = "upgrade: realm must be the proxy's live current realm"
-	ErrNotApproved   = "upgrade: caller is not the approved implementation"
-	ErrTooEarly      = "upgrade: approval is still in its delay"
-	ErrUnauthorized  = "upgrade: caller is not the owner"
-	ErrFrozen        = "upgrade: upgrades are frozen"
-	ErrNotPrepared   = "upgrade: approved implementation has not called Prepare"
-	ErrPrepared      = "upgrade: approval is already prepared"
-	ErrDelayOverflow = "upgrade: delay overflows ETA"
+	ErrInvalidPath     = "upgrade: approved path must be a realm path without a subpath"
+	ErrSpoofedRealm    = "upgrade: realm must be the proxy's live current realm"
+	ErrNotApproved     = "upgrade: caller is not the approved implementation"
+	ErrTooEarly        = "upgrade: approval is still in its delay"
+	ErrUnauthorized    = "upgrade: caller is not the owner"
+	ErrFrozen          = "upgrade: upgrades are frozen"
+	ErrNotPrepared     = "upgrade: approved implementation has not called Prepare"
+	ErrPrepared        = "upgrade: approval is already prepared"
+	ErrDelayOverflow   = "upgrade: delay overflows ETA"
+	ErrNotPendingOwner = "upgrade: caller is not the pending owner"
 )
 
 // Upgrader records a proxy realm's current implementation and the one
@@ -46,15 +47,16 @@ const (
 // then covers both a user and a governance realm, and it avoids the trap of
 // matching a path against a user call, whose path is empty.
 type Upgrader struct {
-	realm    string // the holding realm, named in every event
-	owner    address
-	delay    int64
-	pkgPath  string
-	approved string
-	eta      int64    // first height at which approved may be accepted
-	prepared bool     // eta is set: Prepare ran, or no delay was due
-	served   []string // every path that has been the implementation
-	frozen   bool
+	realm        string // the holding realm, named in every event
+	owner        address
+	pendingOwner address
+	delay        int64
+	pkgPath      string
+	approved     string
+	eta          int64    // first height at which approved may be accepted
+	prepared     bool     // eta is set: Prepare ran, or no delay was due
+	served       []string // every path that has been the implementation
+	frozen       bool
 }
 
 // New returns an Upgrader held by the realm whose live cur is rlm, owned by
@@ -157,19 +159,31 @@ func (u *Upgrader) Freeze(_ int, rlm realm) {
 	u.emit("UpgradeFrozen", "pkgPath", u.pkgPath)
 }
 
-// TransferOwnership hands the owner role to next. It still works after
-// Freeze, because implementations may gate their own admin methods on
+// TransferOwnership nominates next to accept the owner role. It still works
+// after Freeze, because implementations may gate their own admin methods on
 // Owner. Owner only.
 //
-// It takes effect at once, with no delay. It does not need one: whatever
-// the new owner approves still waits the delay before it can be accepted.
+// The current owner keeps control until next calls AcceptOwnership, preventing
+// a valid but mistyped address from making the role unreachable.
 func (u *Upgrader) TransferOwnership(_ int, rlm realm, next address) {
 	u.assertOwner(0, rlm)
 	if !next.IsValid() {
 		panic("upgrade: invalid owner")
 	}
-	u.emit("OwnershipTransferred", "from", u.owner.String(), "to", next.String())
-	u.owner = next
+	u.pendingOwner = next
+	u.emit("OwnershipTransferStarted", "from", u.owner.String(), "to", next.String())
+}
+
+// AcceptOwnership completes a pending transfer. The caller must be the
+// nominated address acting as a user or realm.
+func (u *Upgrader) AcceptOwnership(_ int, rlm realm) {
+	u.assertHolder(0, rlm)
+	if !u.pendingOwner.IsValid() || rlm.Previous().Address() != u.pendingOwner {
+		panic(ErrNotPendingOwner)
+	}
+	from := u.owner
+	u.owner, u.pendingOwner = u.pendingOwner, ""
+	u.emit("OwnershipTransferred", "from", from.String(), "to", u.owner.String())
 }
 
 // assertOwner panics unless rlm is the holding realm's live cur and its
@@ -277,6 +291,9 @@ func (u *Upgrader) Approved() string { return u.approved }
 
 // Owner returns the address that may approve, cancel and freeze.
 func (u *Upgrader) Owner() address { return u.owner }
+
+// PendingOwner returns the address nominated to accept ownership.
+func (u *Upgrader) PendingOwner() address { return u.pendingOwner }
 
 // Frozen reports whether Freeze has ended upgrades.
 func (u *Upgrader) Frozen() bool { return u.frozen }

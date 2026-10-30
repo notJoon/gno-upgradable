@@ -129,11 +129,17 @@ func TransferAdmin(cur realm, newAdmin address) {
 	proxy.TransferOwnership(0, cur, newAdmin)
 }
 
-func Admin() address     { return proxy.Owner() }
-func Frozen() bool       { return proxy.Frozen() }
-func ImplPath() string   { return proxy.ImplPath() }
-func Approved() string   { return proxy.Approved() }
-func ApprovedETA() int64 { return proxy.ETA() }
+func AcceptAdmin(cur realm) {
+	defer guard()()
+	proxy.AcceptOwnership(0, cur)
+}
+
+func Admin() address        { return proxy.Owner() }
+func PendingAdmin() address { return proxy.PendingOwner() }
+func Frozen() bool          { return proxy.Frozen() }
+func ImplPath() string      { return proxy.ImplPath() }
+func Approved() string      { return proxy.Approved() }
+func ApprovedETA() int64    { return proxy.ETA() }
 
 // Methods lists the methods Call and Query answer now.
 func Methods() (calls, queries []string) {

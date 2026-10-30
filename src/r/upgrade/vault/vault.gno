@@ -38,9 +38,13 @@ func Freeze(cur realm) { proxy.Freeze(0, cur) }
 
 func TransferAdmin(cur realm, newAdmin address) { proxy.TransferOwnership(0, cur, newAdmin) }
 
+func AcceptAdmin(cur realm) { proxy.AcceptOwnership(0, cur) }
+
 // Admin returns the address that approves upgrades. Implementations use it
 // to gate admin methods.
 func Admin() address { return proxy.Owner() }
+
+func PendingAdmin() address { return proxy.PendingOwner() }
 
 func Frozen() bool { return proxy.Frozen() }
 

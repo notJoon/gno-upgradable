@@ -30,6 +30,8 @@ liquidity and arithmetic rules are deliberately simplified.
 The owner may cancel a pending upgrade. `Freeze` permanently disables future
 upgrades without disabling implementation-level admin methods. A rollback is
 the same delayed lifecycle applied to a previously served implementation.
+Ownership transfer completes only after the nominated address calls
+`AcceptOwnership` through the proxy's corresponding forwarding function.
 
 ## Security model
 
