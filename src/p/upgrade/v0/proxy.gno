@@ -136,7 +136,9 @@ func (p *Proxy) install(_ int, rlm realm, next Impl) {
 	p.impl, p.pending = next, nil
 	calls, queries := next.Methods()
 	p.calls, p.queries = union(p.calls, calls), union(p.queries, queries)
-	next.Migrate(p.store.Begin(0, rlm), NewCustody(0, rlm), from)
+	c := NewCustody(0, rlm)
+	next.Migrate(p.store.Begin(0, rlm), c, from)
+	c.close()
 }
 
 // Prepare starts the delay of the pending approval. rlm is the proxy's live
@@ -186,7 +188,9 @@ func (p *Proxy) Call(_ int, rlm realm, method, args string) (out string) {
 // fn must come from the proxy realm itself, never from a caller.
 func (p *Proxy) Invoke(_ int, rlm realm, fn func(impl Impl, tx *Tx, c *Custody)) {
 	tx := p.store.Begin(0, rlm)
-	fn(p.current(), tx, NewCustody(0, rlm))
+	c := NewCustody(0, rlm)
+	fn(p.current(), tx, c)
+	c.close()
 	if !tx.sentTaken {
 		for _, coin := range tx.sent() {
 			if coin.Amount != 0 {

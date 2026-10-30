@@ -45,6 +45,9 @@ audit and exit; it does not sandbox bad code. In particular:
 
 - Keep implementation values stateless. Store application state through `Tx`
   and hold assets through `Custody`.
+- `Custody.ApproveForCall` is temporary: the proxy clears every allowance it
+  creates before the call commits. Persistent delegation needs a separate,
+  explicitly tracked design.
 - Export parameterless `Prepare` and `Activate` functions. `Prepare` must pass a
   fixed implementation value; `Activate` registers that saved value.
 - `Methods` checks names and call/query placement only. Review argument,
