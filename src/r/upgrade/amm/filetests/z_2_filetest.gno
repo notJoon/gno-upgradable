@@ -1,6 +1,6 @@
 // PKGPATH: gno.land/r/demo/main
 
-// An approved implementation cannot activate from a swap callback while the
+// An approved implementation cannot install from a swap callback while the
 // old implementation is still updating the pool.
 package main
 
@@ -16,15 +16,13 @@ import (
 
 type next struct{ v1.Impl }
 
-func (next) ID() string { return "gno.land/r/demo/main:callback-next" }
-
 func main(cur realm) {
 	alice := testutils.TestAddress("alice")
 	pool := chain.PackageAddress("gno.land/r/upgrade/amm")
 	self := chain.PackageAddress("gno.land/r/demo/main")
 	testing.SetRealm(testing.NewUserRealm(amm.Admin0))
 	amm.Approve(cross(cur), "gno.land/r/upgrade/amm/v1")
-	v1.Bootstrap(cross(cur))
+	v1.Upgrade(cross(cur))
 
 	testing.SetRealm(testing.NewUserRealm(alice))
 	testtoken.Faucet(cross(cur), 1000)
@@ -35,11 +33,11 @@ func main(cur realm) {
 	testing.SetRealm(testing.NewUserRealm(amm.Admin0))
 	amm.Approve(cross(cur), "gno.land/r/demo/main")
 	testing.SetRealm(testing.NewCodeRealm("gno.land/r/demo/main"))
-	amm.Prepare(cross(cur), next{})
+	amm.Upgrade(cross(cur), next{})
 	testing.SkipHeights(amm.UpgradeDelay)
 
 	activate := func(cur realm, _ int64, _ *amm.CallbackMarker) {
-		amm.Register(cross(cur))
+		amm.Upgrade(cross(cur), next{})
 	}
 	println(revive(func() { amm.Swap(cross(cur), true, 100, 1, self, activate) }))
 	println("impl:", amm.ImplPath())

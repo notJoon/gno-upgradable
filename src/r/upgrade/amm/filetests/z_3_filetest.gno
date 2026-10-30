@@ -16,8 +16,6 @@ import (
 
 type next struct{ v1.Impl }
 
-func (next) ID() string { return "gno.land/r/demo/main:approve-a" }
-
 func (n next) Methods() (calls, queries []upgrade.Method) {
 	calls, queries = n.Impl.Methods()
 	return append(calls, upgrade.Method{Name: "ApproveA", Schema: "v1:void->void"}), queries
@@ -37,7 +35,7 @@ func main(cur realm) {
 	self := chain.PackageAddress("gno.land/r/demo/main")
 	testing.SetRealm(testing.NewUserRealm(amm.Admin0))
 	amm.Approve(cross(cur), "gno.land/r/upgrade/amm/v1")
-	v1.Bootstrap(cross(cur))
+	v1.Upgrade(cross(cur))
 
 	testing.SetRealm(testing.NewUserRealm(alice))
 	testtoken.Faucet(cross(cur), 1000)
@@ -48,9 +46,9 @@ func main(cur realm) {
 	testing.SetRealm(testing.NewUserRealm(amm.Admin0))
 	amm.Approve(cross(cur), "gno.land/r/demo/main")
 	testing.SetRealm(testing.NewCodeRealm("gno.land/r/demo/main"))
-	amm.Prepare(cross(cur), next{})
+	amm.Upgrade(cross(cur), next{})
 	testing.SkipHeights(amm.UpgradeDelay)
-	amm.Register(cross(cur))
+	amm.Upgrade(cross(cur), next{})
 
 	amm.Call(cross(cur), "ApproveA", "")
 	println("allowance:", testtoken.A.Allowance(pool, self))

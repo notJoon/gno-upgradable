@@ -16,16 +16,9 @@ import (
 
 const Fees = "fees" // total -> int64
 
-// Prepare starts the delay once the vault has approved this realm.
-func Prepare(cur realm) {
-	proxy.Prepare(cross(cur), impl{})
-}
-
-// Activate makes v2 the vault's implementation. It succeeds only
-// while the vault has approved this realm.
-func Activate(cur realm) {
-	proxy.Register(cross(cur))
-}
+// Upgrade starts the delay once the vault has approved this realm, and
+// makes v2 the vault's implementation when called again after it.
+func Upgrade(cur realm) { proxy.Upgrade(cross(cur), impl{}) }
 
 // impl inherits every method it does not handle from v1, including
 // Migrate, which accepts any predecessor so that a rollback to v2 from a
@@ -34,7 +27,7 @@ type impl struct {
 	v1.Impl
 }
 
-func (impl) ID() string { return "gno.land/r/upgrade/vault/v2:impl" }
+var _ proxy.Implementation = impl{}
 
 func (i impl) Methods() (calls, queries []upgrade.Method) {
 	calls, queries = i.Impl.Methods()

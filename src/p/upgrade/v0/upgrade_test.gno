@@ -10,7 +10,7 @@ import (
 const owner address = "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
 
 func TestApprove(cur realm, t *testing.T) {
-	u := New(0, cur, owner, 0)
+	u := newUpgrader(0, cur, owner, 0)
 	for _, path := range []string{
 		"gno.land/p/nt/avl/v0",
 		"gno.land/p/x/r/y",
@@ -33,12 +33,12 @@ func TestApprove(cur realm, t *testing.T) {
 }
 
 func TestDelay(cur realm, t *testing.T) {
-	u := New(0, cur, owner, 10)
+	u := newUpgrader(0, cur, owner, 10)
 	h := runtime.ChainHeight()
 	u.approve("gno.land/r/x/v1")
 	uassert.Equal(t, h, u.ETA()) // nothing live yet, so no delay
 
-	// With an implementation live, the delay waits for Prepare.
+	// With an implementation live, the delay waits for the first Upgrade call.
 	u.pkgPath = "gno.land/r/x/v1"
 	u.approve("gno.land/r/x/v2")
 	uassert.Equal(t, int64(0), u.ETA())
@@ -96,57 +96,37 @@ func TestStore(cur realm, t *testing.T) {
 	uassert.Equal(t, "x", string(v.Get("t", "b").([]byte)))
 }
 
-type metadataImpl struct {
-	id      string
-	schema  string
-	methods []Method
+type dupMethods struct{}
+
+func (dupMethods) Migrate(tx *Tx, c *Custody, from string) {}
+func (dupMethods) Methods() (calls, queries []Method) {
+	return []Method{{Name: "Call", Schema: "v1"}, {Name: "Call", Schema: "v2"}}, nil
 }
+func (dupMethods) Call(tx *Tx, c *Custody, method, args string) string { return "" }
+func (dupMethods) Query(v View, method, args string) string            { return "" }
 
-func (i metadataImpl) ID() string                            { return i.id }
-func (metadataImpl) Migrate(tx *Tx, c *Custody, from string) {}
-func (i metadataImpl) Methods() (calls, queries []Method) {
-	if i.methods != nil {
-		return i.methods, nil
-	}
-	return []Method{{Name: "Call", Schema: i.schema}}, nil
-}
-func (metadataImpl) Call(tx *Tx, c *Custody, method, args string) string { return "" }
-func (metadataImpl) Query(v View, method, args string) string            { return "" }
+type uncomparable struct{ xs []int }
 
-func TestImplementationMetadata(cur realm, t *testing.T) {
-	meta := inspectImpl(metadataImpl{id: "example:v1", schema: "v1:string->string"})
-	uassert.Equal(t, "example:v1", meta.id)
-	uassert.Equal(t, 64, len(meta.manifestHash))
+func (uncomparable) Migrate(tx *Tx, c *Custody, from string) {}
 
-	sameManifest := inspectImpl(metadataImpl{id: "example:v2", schema: "v1:string->string"})
-	uassert.Equal(t, meta.manifestHash, sameManifest.manifestHash)
-	changedManifest := inspectImpl(metadataImpl{id: "example:v1", schema: "v2:string->string"})
-	uassert.NotEqual(t, meta.manifestHash, changedManifest.manifestHash)
-
-	uassert.PanicsWithMessage(t, cur, "upgrade: invalid implementation ID", func() {
-		inspectImpl(metadataImpl{id: "Example", schema: "v1"})
-	})
+func TestInspectImpl(cur realm, t *testing.T) {
 	uassert.PanicsWithMessage(t, cur, "upgrade: duplicate Call method Call", func() {
-		inspectImpl(metadataImpl{
-			id: "example:v1",
-			methods: []Method{
-				{Name: "Call", Schema: "v1"},
-				{Name: "Call", Schema: "v2"},
-			},
-		})
+		inspectImpl(dupMethods{})
+	})
+	uassert.PanicsWithMessage(t, cur, "upgrade: implementation must be comparable", func() {
+		inspectImpl(uncomparable{})
 	})
 }
 
 type lifecycleOnly struct{}
 
-func (lifecycleOnly) ID() string                              { return "example:lifecycle-only" }
 func (lifecycleOnly) Migrate(tx *Tx, c *Custody, from string) {}
 
 func TestLifecycleOnlyImplementation(cur realm, t *testing.T) {
 	p := NewProxy(0, cur, owner, 0)
 	p.impl = lifecycleOnly{}
 	p.Invoke(0, cur, func(impl Impl, tx *Tx, _ *Custody) {
-		uassert.Equal(t, "example:lifecycle-only", impl.ID())
+		uassert.True(t, impl == Impl(lifecycleOnly{}))
 		tx.sentTaken = true
 		tx.Set("typed", "value", "ok")
 	})

@@ -22,8 +22,6 @@ var kept *handles
 
 type sticky struct{ v1.Impl }
 
-func (sticky) ID() string { return "gno.land/r/demo/main:sticky-handles" }
-
 func (sticky) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) string {
 	kept = &handles{tx: tx, c: c}
 	return ""
@@ -32,13 +30,13 @@ func (sticky) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) stri
 func main(cur realm) {
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
-	v1.Bootstrap(cross(cur))
+	v1.Upgrade(cross(cur))
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/demo/main")
 	testing.SetRealm(testing.NewCodeRealm("gno.land/r/demo/main"))
-	vault.Prepare(cross(cur), sticky{})
+	vault.Upgrade(cross(cur), sticky{})
 	testing.SkipHeights(vault.UpgradeDelay)
-	vault.Register(cross(cur))
+	vault.Upgrade(cross(cur), sticky{})
 	testing.SetRealm(testing.NewUserRealm(testutils.TestAddress("alice")))
 	vault.Call(cross(cur), "Deposit", "")
 }

@@ -1,4 +1,4 @@
-# A real node must reject implementation activation from a swap callback.
+# A real node must reject installing an implementation from a swap callback.
 
 patchpkg 'const UpgradeDelay = 17280' 'const UpgradeDelay = 2'
 loadpkg gno.land/p/nt/bptree/v0
@@ -14,7 +14,7 @@ gnoland start
 
 gnokey maketx call -pkgpath gno.land/r/upgrade/amm -func Approve -args gno.land/r/upgrade/amm/v1 -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
-gnokey maketx call -pkgpath gno.land/r/upgrade/amm/v1 -func Bootstrap -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/upgrade/amm/v1 -func Upgrade -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
 gnokey maketx addpkg -pkgdir $WORK/v2 -pkgpath gno.land/r/upgrade/amm/v2 -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
@@ -23,7 +23,7 @@ stdout OK!
 
 gnokey maketx call -pkgpath gno.land/r/upgrade/amm -func Approve -args gno.land/r/upgrade/amm/v2 -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
-gnokey maketx call -pkgpath gno.land/r/upgrade/amm/v2 -func Prepare -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+gnokey maketx call -pkgpath gno.land/r/upgrade/amm/v2 -func Upgrade -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
 
 gnokey maketx send -send 1ugnot -to $test1_user_addr -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
@@ -53,8 +53,6 @@ import (
 
 type impl struct{ v1.Impl }
 
-func (impl) ID() string { return "gno.land/r/upgrade/amm/v2:impl" }
-
 func Setup(cur realm) {
 	pool := chain.PackageAddress("gno.land/r/upgrade/amm")
 	testtoken.Faucet(cross(cur), 2000)
@@ -63,14 +61,14 @@ func Setup(cur realm) {
 	proxy.Call(cross(cur), "AddLiquidity", "1000 1000")
 }
 
-func Prepare(cur realm) {
-	proxy.Prepare(cross(cur), impl{})
+func Upgrade(cur realm) {
+	proxy.Upgrade(cross(cur), impl{})
 }
 
 func Attack(cur realm) {
 	self := chain.PackageAddress("gno.land/r/upgrade/amm/v2")
 	activate := func(cur realm, _ int64, _ *proxy.CallbackMarker) {
-		proxy.Register(cross(cur))
+		proxy.Upgrade(cross(cur), impl{})
 	}
 	proxy.Swap(cross(cur), true, 100, 1, self, activate)
 }

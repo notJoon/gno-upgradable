@@ -2,7 +2,7 @@
 
 // Upgrading from v1 to v2 keeps the vault's address, coins and balances,
 // v2 adds a method without changing the vault, and an old implementation
-// cannot take control back.
+// cannot take control back without a new approval.
 package main
 
 import (
@@ -25,7 +25,7 @@ func main(cur realm) {
 
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
-	v1.Bootstrap(cross(cur))
+	v1.Upgrade(cross(cur))
 	println("impl:", vault.ImplPath())
 
 	// alice deposits 1000ugnot through a direct call.
@@ -41,16 +41,16 @@ func main(cur realm) {
 	println(revive(func() { vault.Call(cross(cur), "CollectFees", "") }))
 
 	// v2 is not approved yet.
-	println(revive(func() { v2.Activate(cross(cur)) }))
+	println(revive(func() { v2.Upgrade(cross(cur)) }))
 
 	testing.SetRealm(testing.NewUserRealm(admin))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v2")
 	println("approved:", vault.Approved())
-	v2.Prepare(cross(cur))
+	v2.Upgrade(cross(cur))
 	// v2 must wait out the delay while v1 is live.
-	println(revive(func() { v2.Activate(cross(cur)) }))
+	println(revive(func() { v2.Upgrade(cross(cur)) }))
 	testing.SkipHeights(vault.UpgradeDelay)
-	v2.Activate(cross(cur))
+	v2.Upgrade(cross(cur))
 	println("impl:", vault.ImplPath())
 
 	// Balances carry over, and v2 charges a 1% fee.
@@ -67,8 +67,8 @@ func main(cur realm) {
 	vault.Call(cross(cur), "CollectFees", "")
 	println("admin coins:", bnk.GetCoin(admin, "ugnot"), "vault coins:", bnk.GetCoin(vaultAddr, "ugnot"))
 
-	// v1 is still on chain but cannot register again.
-	println(revive(func() { v1.Activate(cross(cur)) }))
+	// v1 is still on chain but cannot take over again without a new approval.
+	println(revive(func() { v1.Upgrade(cross(cur)) }))
 	println("impl:", vault.ImplPath())
 }
 

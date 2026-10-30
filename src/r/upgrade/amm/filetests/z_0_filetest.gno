@@ -23,7 +23,7 @@ func main(cur realm) {
 	self := chain.PackageAddress("gno.land/r/demo/main")
 	testing.SetRealm(testing.NewUserRealm(amm.Admin0))
 	amm.Approve(cross(cur), "gno.land/r/upgrade/amm/v1")
-	v1.Bootstrap(cross(cur))
+	v1.Upgrade(cross(cur))
 
 	// alice adds liquidity from her account.
 	testing.SetRealm(testing.NewUserRealm(alice))
