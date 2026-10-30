@@ -40,11 +40,11 @@ func (r ImplRef) Path() string { return r.path }
 
 // Is reports whether r names the given realm and implementation value.
 func (r ImplRef) Is(path string, impl Impl) bool {
-	if r.impl == nil || impl == nil {
+	if impl == nil || r.path != path {
 		return false
 	}
 	assertComparable(impl)
-	return r.path == path && r.impl == impl
+	return r.impl == impl
 }
 
 // Method identifies one string-dispatched method and the schema its callers
@@ -218,7 +218,7 @@ func (p *Proxy) assertAPI(meta implMeta, rollback bool) {
 	if rollback {
 		return
 	}
-	calls, queries := minus(p.calls, meta.calls), minus(p.queries, meta.queries)
+	calls, queries := p.missing(meta)
 	if len(calls)+len(queries) > 0 {
 		panic("upgrade: next implementation lacks API methods: " +
 			describe(calls, queries) + "; to retire one, keep it and make it panic")
@@ -320,12 +320,18 @@ func (p *Proxy) API() (calls, queries []Method) { return p.calls, p.queries }
 // so inspection cannot determine whether it is a rollback.
 func (p *Proxy) InspectImpl(next Impl) Candidate {
 	meta := inspectMeta(next)
+	calls, queries := p.missing(meta)
 	return Candidate{
 		Calls:          meta.calls,
 		Queries:        meta.queries,
-		MissingCalls:   minus(p.calls, meta.calls),
-		MissingQueries: minus(p.queries, meta.queries),
+		MissingCalls:   calls,
+		MissingQueries: queries,
 	}
+}
+
+// missing returns the API methods meta does not answer.
+func (p *Proxy) missing(meta implMeta) (calls, queries []Method) {
+	return minus(p.calls, meta.calls), minus(p.queries, meta.queries)
 }
 
 // Missing returns the API methods next does not answer, which Upgrade
@@ -390,11 +396,10 @@ func (p *Proxy) clearPending() {
 
 // isRollback reports whether the realm at path has installed next before.
 // Matching the value alone is not enough: another realm can declare a zero
-// value of an exported implementation type. inspectMeta has checked every
-// value here is comparable.
+// value of an exported implementation type.
 func (p *Proxy) isRollback(path string, next Impl) bool {
 	for _, s := range p.served {
-		if s.path == path && s.impl == next {
+		if s.Is(path, next) {
 			return true
 		}
 	}
