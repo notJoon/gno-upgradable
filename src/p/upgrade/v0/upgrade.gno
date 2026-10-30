@@ -8,14 +8,15 @@ import (
 )
 
 const (
-	ErrInvalidPath  = "upgrade: approved path must be a realm path without a subpath"
-	ErrSpoofedRealm = "upgrade: realm must be the proxy's live current realm"
-	ErrNotApproved  = "upgrade: caller is not the approved implementation"
-	ErrTooEarly     = "upgrade: approval is still in its delay"
-	ErrUnauthorized = "upgrade: caller is not the owner"
-	ErrFrozen       = "upgrade: upgrades are frozen"
-	ErrNotPrepared  = "upgrade: approved implementation has not called Prepare"
-	ErrPrepared     = "upgrade: approval is already prepared"
+	ErrInvalidPath   = "upgrade: approved path must be a realm path without a subpath"
+	ErrSpoofedRealm  = "upgrade: realm must be the proxy's live current realm"
+	ErrNotApproved   = "upgrade: caller is not the approved implementation"
+	ErrTooEarly      = "upgrade: approval is still in its delay"
+	ErrUnauthorized  = "upgrade: caller is not the owner"
+	ErrFrozen        = "upgrade: upgrades are frozen"
+	ErrNotPrepared   = "upgrade: approved implementation has not called Prepare"
+	ErrPrepared      = "upgrade: approval is already prepared"
+	ErrDelayOverflow = "upgrade: delay overflows ETA"
 )
 
 // Upgrader records a proxy realm's current implementation and the one
@@ -189,8 +190,16 @@ func (u *Upgrader) assertOwner(_ int, rlm realm) {
 // back.
 func (u *Upgrader) Prepare(_ int, rlm realm) {
 	u.assertPreparable(0, rlm)
-	u.eta, u.prepared = runtime.ChainHeight()+u.delay, true
+	u.eta, u.prepared = addDelay(runtime.ChainHeight(), u.delay), true
 	u.emit("UpgradePrepared", "pkgPath", u.approved, "eta", strconv.FormatInt(u.eta, 10))
+}
+
+func addDelay(height, delay int64) int64 {
+	const maxInt64 = 1<<63 - 1
+	if delay > maxInt64-height {
+		panic(ErrDelayOverflow)
+	}
+	return height + delay
 }
 
 // assertPreparable runs Prepare's checks without preparing.

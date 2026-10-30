@@ -42,6 +42,12 @@ func TestDelay(cur realm, t *testing.T) {
 	u.pkgPath = "gno.land/r/x/v1"
 	u.approve("gno.land/r/x/v2")
 	uassert.Equal(t, int64(0), u.ETA())
+
+	const maxInt64 = 1<<63 - 1
+	uassert.Equal(t, int64(maxInt64), addDelay(maxInt64-10, 10))
+	uassert.PanicsWithMessage(t, cur, ErrDelayOverflow, func() {
+		addDelay(maxInt64, 1)
+	})
 }
 
 func TestStore(cur realm, t *testing.T) {
