@@ -3,8 +3,6 @@ package upgrade
 import (
 	"chain"
 	"chain/runtime/unsafe"
-	"crypto/sha256"
-	"encoding/hex"
 	"strconv"
 	"strings"
 )
@@ -14,11 +12,13 @@ const (
 	ErrUnexpectedCoins = "upgrade: method did not take the coins sent with it"
 )
 
-// Impl is the lifecycle shared by every implementation. ID identifies the
-// concrete implementation value, not merely the realm that registered it.
-// Keep it stable and return it from stateless code.
+// Impl is the lifecycle shared by every implementation.
+//
+// The proxy tells implementations apart by the realm that installs them and
+// the value itself, compared with ==. Use a value type such as an empty
+// struct. A value holding a slice, map or func is refused, and a pointer
+// compares by address, so a fresh pointer on each call never matches.
 type Impl interface {
-	ID() string
 	Migrate(tx *Tx, c *Custody, from string)
 }
 
@@ -43,8 +43,8 @@ type Method struct {
 // and make it panic with a reason, such as "Withdraw was retired, use
 // WithdrawTo".
 //
-// A rollback is the one exception. An exact realm path, implementation ID and
-// manifest hash that served before cannot know the methods added after it, so
+// A rollback is the one exception. An implementation value that served before
+// from the same realm cannot know the methods added after it, so
 // returning to one may leave some of the API unavailable until a version that
 // has them comes back. Those methods stay in the API, so a version after the
 // rollback must answer them again.
@@ -73,15 +73,11 @@ type Renderer interface {
 	Render(v View, path string) string
 }
 
-type servedImpl struct {
-	path         string
-	id           string
-	manifestHash string
-}
-
+// implMeta is the method lists an implementation had when it was checked.
+// The proxy routes by this copy, so a Methods that changes its answer later
+// changes nothing.
 type implMeta struct {
-	id, manifestHash string
-	calls, queries   []Method
+	calls, queries []Method
 }
 
 // Proxy is the state of an upgradable realm: who may become its
@@ -93,10 +89,9 @@ type implMeta struct {
 //
 // There is no Rollback. Going back to an older implementation is an
 // ordinary upgrade to it: the owner approves the old realm's path, the old
-// realm calls Prepare, the delay runs, and the old realm registers again. So
-// every implementation should export crossing functions that call Prepare
-// and Register, such as Prepare and Activate, rather than registering only
-// from init, which never runs twice.
+// realm calls Upgrade, the delay runs, and the old realm calls Upgrade again.
+// So every implementation should export a crossing function that calls
+// Upgrade, rather than upgrading only from init, which never runs twice.
 //
 // The delay applies to rollbacks on purpose. Users accepted the old code
 // against older state, and some may have left because of it. An instant
@@ -116,7 +111,7 @@ type implMeta struct {
 //     unsafe, so prefer adding a new table.
 //   - Coins stay at the proxy's address throughout.
 type Proxy struct {
-	u       *Upgrader
+	u       *upgrader
 	store   *Store
 	impl    Impl
 	pending Impl
@@ -129,76 +124,68 @@ type Proxy struct {
 	served                  []servedImpl
 }
 
+// servedImpl is a realm path and the value it installed. The chain
+// authenticates the path as the caller, and the value's type decides the code
+// that runs, so together they name an implementation without an ID.
+type servedImpl struct {
+	path string
+	impl Impl
+}
+
 // NewProxy returns an empty proxy held by the realm whose live cur is rlm.
 // The owner must approve the first implementation after its realm is deployed;
 // later implementations wait delay blocks.
 func NewProxy(_ int, rlm realm, owner address, delay int64) *Proxy {
-	return &Proxy{u: New(0, rlm, owner, delay), store: NewStore(0, rlm)}
+	return &Proxy{u: newUpgrader(0, rlm, owner, delay), store: NewStore(0, rlm)}
 }
 
-// Bootstrap installs the first implementation without a delay. rlm is the
-// proxy's live cur, so the caller must be the first approved realm.
-func (p *Proxy) Bootstrap(_ int, rlm realm, first Impl) {
-	if p.impl != nil {
-		panic("upgrade: implementation already registered")
-	}
-	p.u.assertAcceptable(0, rlm)
-	meta := inspectImpl(first)
-	rollback := p.isRollback(p.u.Approved(), meta)
-	p.assertAPI(meta, rollback)
-	p.install(0, rlm, first, meta, rollback)
-}
-
-// Register installs the implementation saved by Prepare and runs its Migrate.
-// rlm is the proxy's live cur, so the caller must be the approved realm.
+// Upgrade moves the pending approval forward. rlm is the proxy's live cur, so
+// the caller must be the approved realm, and the realm calls it the same way
+// every time:
+//   - With nothing live, next becomes the implementation at once.
+//   - Otherwise the first call saves next and starts the delay. It checks next
+//     against the API as installing will, so an implementation that lacks a
+//     method fails now rather than once the delay has passed.
+//   - A call after the delay installs the saved value and runs its Migrate.
+//     next must equal it.
 //
-// Unless this is a rollback, the pending implementation must answer the whole
-// API. The check runs before anything changes.
-func (p *Proxy) Register(_ int, rlm realm) {
+// Unless the same realm installed next before, it must answer the whole API.
+func (p *Proxy) Upgrade(_ int, rlm realm, next Impl) {
+	if p.impl != nil && p.pending == nil {
+		p.prepare(0, rlm, next)
+		return
+	}
 	p.u.assertAcceptable(0, rlm)
+	meta := p.pendingMeta
 	if p.pending == nil {
-		panic("upgrade: no prepared implementation")
+		meta = inspectImpl(next)
+		p.assertAPI(meta, false)
+	} else if next != p.pending {
+		panic("upgrade: next is not the prepared implementation")
 	}
-	meta := inspectImpl(p.pending)
-	if meta.id != p.pendingMeta.id || meta.manifestHash != p.pendingMeta.manifestHash {
-		panic("upgrade: prepared implementation changed")
-	}
-	rollback := p.isRollback(p.u.Approved(), meta)
-	p.assertAPI(meta, rollback)
-	p.install(0, rlm, p.pending, meta, rollback)
-}
-
-func (p *Proxy) install(_ int, rlm realm, next Impl, meta implMeta, rollback bool) {
-	from := p.u.PkgPath()
 	path := p.u.Approved()
-	p.u.accept(0, rlm, rollback, "implementation", meta.id, "manifestHash", meta.manifestHash)
-	p.impl, p.pending = next, nil
-	p.activeMeta, p.pendingMeta = meta, implMeta{}
+	rollback := p.isRollback(path, next)
+	from := p.u.PkgPath()
+	p.u.accept(0, rlm, rollback)
+	p.impl, p.activeMeta = next, meta
+	p.clearPending()
 	p.calls = union(p.calls, meta.calls)
 	p.queries = union(p.queries, meta.queries)
 	if !rollback {
-		p.served = append(p.served, servedImpl{
-			path: path, id: meta.id, manifestHash: meta.manifestHash,
-		})
+		p.served = append(p.served, servedImpl{path: path, impl: next})
 	}
 	c := NewCustody(0, rlm)
 	next.Migrate(p.store.Begin(0, rlm), c, from)
 	c.revokeApprovals()
 }
 
-// Prepare starts the delay of the pending approval. rlm is the proxy's live
-// cur, so the caller must be the approved realm. It checks next against the
-// API as Register will, so an implementation that lacks a method fails now
-// rather than once the delay has passed.
-func (p *Proxy) Prepare(_ int, rlm realm, next Impl) {
+func (p *Proxy) prepare(_ int, rlm realm, next Impl) {
 	p.u.assertPreparable(0, rlm)
 	meta := inspectImpl(next)
-	rollback := p.isRollback(p.u.Approved(), meta)
+	rollback := p.isRollback(p.u.Approved(), next)
 	p.assertAPI(meta, rollback)
-	p.u.prepare(0, rlm, "implementation", meta.id, "manifestHash", meta.manifestHash,
-		"rollback", strconv.FormatBool(rollback))
-	p.pending = next
-	p.pendingMeta = meta
+	p.u.prepare(0, rlm, "rollback", strconv.FormatBool(rollback))
+	p.pending, p.pendingMeta = next, meta
 }
 
 // assertAPI panics unless meta answers the whole API or this is a rollback.
@@ -282,12 +269,12 @@ func (p *Proxy) banner() string {
 		return ""
 	}
 	kind := "Upgrade"
-	if u.prepared && p.isRollback(u.approved, p.pendingMeta) {
+	if p.pending != nil && p.isRollback(u.approved, p.pending) {
 		kind = "Rollback"
 	}
 	if !u.prepared {
 		return "> [!WARNING]\n> " + kind + " approved: `" + u.approved + "`. Its delay of " +
-			strconv.FormatInt(u.delay, 10) + " blocks starts when it calls Prepare.\n\n"
+			strconv.FormatInt(u.delay, 10) + " blocks starts when it calls Upgrade.\n\n"
 	}
 	return "> [!WARNING]\n> " + kind + " pending: `" + u.approved + "` can take over at block " +
 		strconv.FormatInt(u.eta, 10) + ".\n\n"
@@ -303,7 +290,7 @@ func (p *Proxy) Methods() (calls, queries []Method) {
 // API returns every method descriptor any implementation has served.
 func (p *Proxy) API() (calls, queries []Method) { return p.calls, p.queries }
 
-// Missing returns the API methods next does not answer, which Register
+// Missing returns the API methods next does not answer, which Upgrade
 // refuses unless it is a rollback. It changes nothing, so an
 // implementation's tests can call it before the implementation is
 // approved, instead of finding out once the delay has passed.
@@ -315,7 +302,7 @@ func (p *Proxy) Missing(next Dispatcher) (calls, queries []Method) {
 
 // Approve, Cancel, Freeze and TransferOwnership take the proxy realm's
 // live cur and check its caller is the owner, so the realm forwards them
-// as is, with no check of its own. See Upgrader for why the check is here.
+// as is, with no check of its own. See upgrader for why the check is here.
 // The realm must pass its own cur, not cur.Previous(), or the check fails.
 func (p *Proxy) Approve(_ int, rlm realm, pkgPath string) {
 	p.u.Approve(0, rlm, pkgPath)
@@ -337,16 +324,12 @@ func (p *Proxy) TransferOwnership(_ int, rlm realm, next address) {
 }
 func (p *Proxy) AcceptOwnership(_ int, rlm realm) { p.u.AcceptOwnership(0, rlm) }
 
-func (p *Proxy) Owner() address              { return p.u.Owner() }
-func (p *Proxy) PendingOwner() address       { return p.u.PendingOwner() }
-func (p *Proxy) Frozen() bool                { return p.u.Frozen() }
-func (p *Proxy) ImplPath() string            { return p.u.PkgPath() }
-func (p *Proxy) Approved() string            { return p.u.Approved() }
-func (p *Proxy) ETA() int64                  { return p.u.ETA() }
-func (p *Proxy) ImplID() string              { return p.activeMeta.id }
-func (p *Proxy) PendingImplID() string       { return p.pendingMeta.id }
-func (p *Proxy) ManifestHash() string        { return p.activeMeta.manifestHash }
-func (p *Proxy) PendingManifestHash() string { return p.pendingMeta.manifestHash }
+func (p *Proxy) Owner() address        { return p.u.Owner() }
+func (p *Proxy) PendingOwner() address { return p.u.PendingOwner() }
+func (p *Proxy) Frozen() bool          { return p.u.Frozen() }
+func (p *Proxy) ImplPath() string      { return p.u.PkgPath() }
+func (p *Proxy) Approved() string      { return p.u.Approved() }
+func (p *Proxy) ETA() int64            { return p.u.ETA() }
 
 func (p *Proxy) current() Impl {
 	if p.impl == nil {
@@ -360,9 +343,13 @@ func (p *Proxy) clearPending() {
 	p.pendingMeta = implMeta{}
 }
 
-func (p *Proxy) isRollback(path string, meta implMeta) bool {
-	for _, served := range p.served {
-		if served.path == path && served.id == meta.id && served.manifestHash == meta.manifestHash {
+// isRollback reports whether the realm at path has installed next before.
+// Matching the value alone is not enough: another realm can declare a zero
+// value of an exported implementation type. inspectImpl has checked every
+// value here is comparable.
+func (p *Proxy) isRollback(path string, next Impl) bool {
+	for _, s := range p.served {
+		if s.path == path && s.impl == next {
 			return true
 		}
 	}
@@ -440,42 +427,30 @@ func containsName(list []Method, name string) bool {
 	return false
 }
 
+// inspectImpl checks impl and copies its method lists.
 func inspectImpl(impl Impl) implMeta {
 	if impl == nil {
 		panic("upgrade: nil implementation")
 	}
+	assertComparable(impl)
 	var meta implMeta
-	id := impl.ID()
-	if id == "" || len(id) > 256 {
-		panic("upgrade: invalid implementation ID")
-	}
-	if !onlyChars(id, "./_:-@") {
-		panic("upgrade: invalid implementation ID")
-	}
-	manifest := ""
-	if dispatcher, ok := impl.(Dispatcher); ok {
-		calls, queries := dispatcher.Methods()
+	if d, ok := impl.(Dispatcher); ok {
+		calls, queries := d.Methods()
 		validateMethods(calls, queries)
-		calls, queries = cloneMethods(calls), cloneMethods(queries)
-		meta.calls, meta.queries = calls, queries
-		manifest += ";dispatcher=1"
-		for _, method := range calls {
-			manifest += ";call=" + encodeMethod(method)
-		}
-		for _, method := range queries {
-			manifest += ";query=" + encodeMethod(method)
-		}
-	} else {
-		manifest += ";dispatcher=0"
+		meta.calls, meta.queries = cloneMethods(calls), cloneMethods(queries)
 	}
-	if _, ok := impl.(Renderer); ok {
-		manifest += ";renderer=1"
-	} else {
-		manifest += ";renderer=0"
-	}
-	sum := sha256.Sum256([]byte(manifest))
-	meta.id, meta.manifestHash = id, hex.EncodeToString(sum[:])
 	return meta
+}
+
+// assertComparable panics unless impl can be compared with ==, which is how
+// the proxy recognizes a rollback and the prepared value.
+func assertComparable(impl Impl) {
+	defer func() {
+		if recover() != nil {
+			panic("upgrade: implementation must be comparable")
+		}
+	}()
+	_ = impl == impl
 }
 
 func cloneMethods(methods []Method) []Method {
@@ -499,12 +474,4 @@ func validateMethodList(kind string, methods []Method) {
 			}
 		}
 	}
-}
-
-func encodeMethod(method Method) string {
-	return encodePart(method.Name) + encodePart(method.Schema)
-}
-
-func encodePart(part string) string {
-	return strconv.Itoa(len(part)) + ":" + part
 }
