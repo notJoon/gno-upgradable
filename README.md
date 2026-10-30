@@ -4,9 +4,11 @@ An upgradable realm pattern for Gno. The proxy realm keeps the permanent
 address, state, coins, and GRC20 tokens. An implementation realm supplies the
 behavior and can be replaced after an on-chain delay.
 
-The repository contains the reusable `gno.land/p/upgrade/v0` package and two
+The repository contains the reusable `gno.land/p/upgrade/v0` package and three
 examples:
 
+- `counter` is the smallest one: typed entry points only, with no method
+  lists or string arguments, and a v2 that adds a Render and a migration.
 - `vault` demonstrates string-dispatched calls, migrations, fees, and rollback.
 - `amm` demonstrates typed entry points, token custody, callbacks, and
   reentrancy protection.
