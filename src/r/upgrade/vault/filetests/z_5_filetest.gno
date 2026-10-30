@@ -43,11 +43,10 @@ func (r retired) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) s
 	return r.Impl.Call(tx, c, method, args)
 }
 
-// approve approves path and waits out the delay.
+// approve approves path. The caller then has it Prepare and waits.
 func approve(cur realm, path string) {
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), path)
-	testing.SkipHeights(vault.UpgradeDelay)
 }
 
 // noFees is v1 as a new implementation: it lacks v2's CollectFees.
@@ -68,8 +67,12 @@ func main(cur realm) {
 	println(vault.Missing(noWithdraw{}))
 	println(vault.Missing(moved{}))
 
+	// Prepare with a whole implementation, then register lacking ones:
+	// Register checks again, since it may be handed a different value.
 	approve(cur, "gno.land/r/demo/main")
 	testing.SetRealm(self)
+	vault.Prepare(cross(cur), noFees{})
+	testing.SkipHeights(vault.UpgradeDelay)
 	println(revive(func() { vault.Register(cross(cur), noWithdraw{}) }))
 	println(revive(func() { vault.Register(cross(cur), moved{}) }))
 	// A refused registration changes nothing.
@@ -78,8 +81,12 @@ func main(cur realm) {
 	// Rolling back from v2 to v1 leaves CollectFees out, but it stays in
 	// the API, so the next new implementation must answer it.
 	approve(cur, "gno.land/r/upgrade/vault/v2")
+	v2.Prepare(cross(cur))
+	testing.SkipHeights(vault.UpgradeDelay)
 	v2.Activate(cross(cur))
 	approve(cur, "gno.land/r/upgrade/vault/v1")
+	v1.Prepare(cross(cur))
+	testing.SkipHeights(vault.UpgradeDelay)
 	v1.Activate(cross(cur))
 	println("impl:", vault.ImplPath())
 	println(vault.Methods())
@@ -87,6 +94,8 @@ func main(cur realm) {
 
 	approve(cur, "gno.land/r/demo/main")
 	testing.SetRealm(self)
+	vault.Prepare(cross(cur), retired{})
+	testing.SkipHeights(vault.UpgradeDelay)
 	println(revive(func() { vault.Register(cross(cur), noFees{}) }))
 	// Retiring keeps the name and fails with a reason.
 	vault.Register(cross(cur), retired{})

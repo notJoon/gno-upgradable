@@ -6,6 +6,7 @@ package vault
 
 import (
 	"chain"
+	"strconv"
 
 	"gno.land/p/nt/ufmt/v0"
 	"gno.land/p/upgrade/v0"
@@ -15,21 +16,22 @@ import (
 
 const Fees = "fees" // total -> int64
 
+// Prepare starts the delay once the vault has approved this realm.
+func Prepare(cur realm) {
+	proxy.Prepare(cross(cur), impl{})
+}
+
 // Activate makes v2 the vault's implementation. It succeeds only
 // while the vault has approved this realm.
 func Activate(cur realm) {
 	proxy.Register(cross(cur), impl{})
 }
 
-// impl inherits every method it does not handle from v1.
+// impl inherits every method it does not handle from v1, including
+// Migrate, which accepts any predecessor so that a rollback to v2 from a
+// later version works.
 type impl struct {
 	v1.Impl
-}
-
-func (impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {
-	if from != "gno.land/r/upgrade/vault/v1" {
-		panic("vault: v2 upgrades only from v1")
-	}
 }
 
 func (i impl) Methods() (calls, queries []string) {
@@ -47,6 +49,7 @@ func (i impl) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) stri
 			tx.Set(Fees, "total", tx.View().GetInt64(Fees, "total")+fee)
 		}
 		c.Pay(tx.Caller(), chain.Coins{chain.NewCoin("ugnot", amount-fee)})
+		tx.Emit("Withdraw", "caller", tx.Caller().String(), "amount", args, "fee", strconv.FormatInt(fee, 10))
 		return ""
 	case "CollectFees":
 		if tx.Caller() != proxy.Admin() {

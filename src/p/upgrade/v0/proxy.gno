@@ -3,6 +3,7 @@ package upgrade
 import (
 	"chain"
 	"chain/runtime/unsafe"
+	"strconv"
 	"strings"
 )
 
@@ -58,10 +59,11 @@ type Impl interface {
 // # Rolling back
 //
 // There is no Rollback. Going back to an older implementation is an
-// ordinary upgrade to it: the owner approves the old realm's path, the
-// delay runs, and the old realm registers again. So every implementation
-// should export a crossing function that calls Register, such as Activate,
-// rather than registering only from init, which never runs twice.
+// ordinary upgrade to it: the owner approves the old realm's path, the old
+// realm calls Prepare, the delay runs, and the old realm registers again. So
+// every implementation should export crossing functions that call Prepare
+// and Register, such as Prepare and Activate, rather than registering only
+// from init, which never runs twice.
 //
 // The delay applies to rollbacks on purpose. Users accepted the old code
 // against older state, and some may have left because of it. An instant
@@ -94,7 +96,7 @@ type Proxy struct {
 // first approved as its first implementation. owner approves later
 // implementations, which wait delay blocks.
 func NewProxy(_ int, rlm realm, owner address, delay int64, first string) *Proxy {
-	p := &Proxy{u: New(owner, delay), store: NewStore(0, rlm)}
+	p := &Proxy{u: New(0, rlm, owner, delay), store: NewStore(0, rlm)}
 	p.u.approve(first)
 	return p
 }
@@ -105,23 +107,39 @@ func NewProxy(_ int, rlm realm, owner address, delay int64, first string) *Proxy
 // Unless this is a rollback, next must answer the whole API. The check runs
 // before anything changes, so a refused next leaves the proxy as it was.
 func (p *Proxy) Register(_ int, rlm realm, next Impl) {
-	if next == nil {
-		panic("upgrade: nil implementation")
-	}
 	p.u.assertAcceptable(0, rlm)
-	if !p.u.IsRollback() {
-		calls, queries := p.Missing(next)
-		if len(calls)+len(queries) > 0 {
-			panic("upgrade: next implementation lacks API methods: " +
-				describe(calls, queries) + "; to retire one, keep it and make it panic")
-		}
-	}
+	p.assertAPI(next)
 	from := p.u.PkgPath()
 	p.u.Accept(0, rlm)
 	p.impl = next
 	calls, queries := next.Methods()
 	p.calls, p.queries = union(p.calls, calls), union(p.queries, queries)
 	next.Migrate(p.store.Begin(0, rlm), NewCustody(0, rlm), from)
+}
+
+// Prepare starts the delay of the pending approval. rlm is the proxy's live
+// cur, so the caller must be the approved realm. It checks next against the
+// API as Register will, so an implementation that lacks a method fails now
+// rather than once the delay has passed.
+func (p *Proxy) Prepare(_ int, rlm realm, next Impl) {
+	p.u.assertPreparable(0, rlm)
+	p.assertAPI(next)
+	p.u.Prepare(0, rlm)
+}
+
+// assertAPI panics unless next answers the whole API or this is a rollback.
+func (p *Proxy) assertAPI(next Impl) {
+	if next == nil {
+		panic("upgrade: nil implementation")
+	}
+	if p.u.IsRollback() {
+		return
+	}
+	calls, queries := p.Missing(next)
+	if len(calls)+len(queries) > 0 {
+		panic("upgrade: next implementation lacks API methods: " +
+			describe(calls, queries) + "; to retire one, keep it and make it panic")
+	}
 }
 
 // Call forwards a crossing call to the implementation by method name.
@@ -167,8 +185,32 @@ func (p *Proxy) Query(method, args string) string {
 	return p.current().Query(p.store.View(), method, args)
 }
 
+// Render puts a banner for a pending upgrade or a freeze above the
+// implementation's output. The proxy writes it, so no implementation can
+// hide an upgrade users should see coming.
 func (p *Proxy) Render(path string) string {
-	return p.current().Render(p.store.View(), path)
+	return p.banner() + p.current().Render(p.store.View(), path)
+}
+
+// banner needs no escaping: approve allows only package path characters.
+func (p *Proxy) banner() string {
+	u := p.u
+	if u.frozen {
+		return "> [!NOTE]\n> Upgrades are frozen. `" + u.pkgPath + "` serves for good.\n\n"
+	}
+	if u.approved == "" {
+		return ""
+	}
+	kind := "Upgrade"
+	if u.IsRollback() {
+		kind = "Rollback"
+	}
+	if !u.prepared {
+		return "> [!WARNING]\n> " + kind + " approved: `" + u.approved + "`. Its delay of " +
+			strconv.FormatInt(u.delay, 10) + " blocks starts when it calls Prepare.\n\n"
+	}
+	return "> [!WARNING]\n> " + kind + " pending: `" + u.approved + "` can take over at block " +
+		strconv.FormatInt(u.eta, 10) + ".\n\n"
 }
 
 // Methods returns the method names the current implementation answers

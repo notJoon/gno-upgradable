@@ -18,6 +18,11 @@ import (
 
 const Balances = "balances" // address -> int64
 
+// Prepare starts the delay once the vault has approved this realm.
+func Prepare(cur realm) {
+	proxy.Prepare(cross(cur), Impl{})
+}
+
 // Activate makes v1 the vault's implementation.
 // It succeeds only while the vault has approved this realm.
 func Activate(cur realm) {
@@ -40,6 +45,7 @@ func (Impl) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) string
 		amount := ParseAmount(args)
 		Debit(tx, amount)
 		c.Pay(tx.Caller(), chain.Coins{chain.NewCoin("ugnot", amount)})
+		tx.Emit("Withdraw", "caller", tx.Caller().String(), "amount", args)
 	default:
 		panic("vault: unknown method " + method)
 	}
@@ -65,6 +71,7 @@ func Deposit(tx *upgrade.Tx) {
 	}
 	key := tx.Caller().String()
 	tx.Set(Balances, key, tx.View().GetInt64(Balances, key)+sent[0].Amount)
+	tx.Emit("Deposit", "caller", key, "amount", strconv.FormatInt(sent[0].Amount, 10))
 }
 
 // Debit takes amount from the caller's balance.

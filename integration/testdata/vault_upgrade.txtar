@@ -34,8 +34,14 @@ stdout OK!
 ! gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stderr 'caller is not the approved implementation'
 
-# Approve v2. It cannot register during the delay.
+# Approve v2. The delay starts only when v2 calls Prepare.
 gnokey maketx call -pkgpath gno.land/r/upgrade/vault -func Approve -args gno.land/r/upgrade/vault/v2 -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stdout OK!
+! gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
+stderr 'approved implementation has not called Prepare'
+
+# v2 prepares. It cannot register during the delay.
+gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Prepare -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stdout OK!
 ! gnokey maketx call -pkgpath gno.land/r/upgrade/vault/v2 -func Activate -gas-fee 1000000ugnot -gas-wanted 50000000 -broadcast -chainid=tendermint_test test1
 stderr 'approval is still in its delay'

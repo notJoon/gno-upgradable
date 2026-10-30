@@ -10,12 +10,15 @@ import (
 const owner address = "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
 
 func TestApprove(cur realm, t *testing.T) {
-	u := New(owner, 0)
+	u := New(0, cur, owner, 0)
 	for _, path := range []string{
 		"gno.land/p/nt/avl/v0",
 		"gno.land/p/x/r/y",
 		"gno.land/e/g1user/run",
 		"gno.land/r/x#sub",
+		"gno.land/r/x`y",
+		"gno.land/r/X",
+		"gno.land/r/x y",
 		"",
 	} {
 		uassert.PanicsWithMessage(t, cur, ErrInvalidPath, func() {
@@ -30,14 +33,15 @@ func TestApprove(cur realm, t *testing.T) {
 }
 
 func TestDelay(cur realm, t *testing.T) {
-	u := New(owner, 10)
+	u := New(0, cur, owner, 10)
 	h := runtime.ChainHeight()
 	u.approve("gno.land/r/x/v1")
 	uassert.Equal(t, h, u.ETA()) // nothing live yet, so no delay
 
+	// With an implementation live, the delay waits for Prepare.
 	u.pkgPath = "gno.land/r/x/v1"
 	u.approve("gno.land/r/x/v2")
-	uassert.Equal(t, h+10, u.ETA())
+	uassert.Equal(t, int64(0), u.ETA())
 }
 
 func TestStore(cur realm, t *testing.T) {

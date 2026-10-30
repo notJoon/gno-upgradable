@@ -90,6 +90,14 @@ func (tx *Tx) Caller() address {
 	return tx.rlm.Previous().Address()
 }
 
+// Emit emits an event with a "realm" attribute naming the store's owner.
+// An implementation should emit through it rather than chain.Emit, whose
+// pkg_path would name the implementation and change with every upgrade.
+func (tx *Tx) Emit(typ string, attrs ...string) {
+	tx.assertLive()
+	chain.Emit(typ, append([]string{"realm", tx.s.owner}, attrs...)...)
+}
+
 // View returns a read-only handle on the same store.
 func (tx *Tx) View() View {
 	return tx.s.View()

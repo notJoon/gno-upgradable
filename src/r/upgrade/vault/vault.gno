@@ -44,6 +44,12 @@ func Admin() address { return proxy.Owner() }
 
 func Frozen() bool { return proxy.Frozen() }
 
+// Prepare is called by the approved implementation realm to start the
+// delay, once its code is deployed.
+func Prepare(cur realm, next upgrade.Impl) {
+	proxy.Prepare(0, cur, next)
+}
+
 // Register is called by the approved implementation realm to take over.
 func Register(cur realm, next upgrade.Impl) {
 	proxy.Register(0, cur, next)

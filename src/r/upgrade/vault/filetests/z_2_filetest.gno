@@ -37,13 +37,17 @@ func main(cur realm) {
 
 	testing.SetRealm(testing.NewUserRealm(admin))
 	vault.Approve(cross(cur), "gno.land/r/demo/main")
+	testing.SetRealm(testing.NewCodeRealm("gno.land/r/demo/main"))
+	vault.Prepare(cross(cur), sticky{})
 	println("eta set:", vault.ApprovedETA() > 0)
+	testing.SetRealm(testing.NewUserRealm(admin))
 	vault.Cancel(cross(cur))
 	println("after cancel:", vault.Approved() == "", vault.ApprovedETA())
 
 	vault.Approve(cross(cur), "gno.land/r/demo/main")
-	testing.SkipHeights(vault.UpgradeDelay)
 	testing.SetRealm(testing.NewCodeRealm("gno.land/r/demo/main"))
+	vault.Prepare(cross(cur), sticky{})
+	testing.SkipHeights(vault.UpgradeDelay)
 	vault.Register(cross(cur), sticky{})
 
 	testing.SetRealm(testing.NewUserRealm(alice))

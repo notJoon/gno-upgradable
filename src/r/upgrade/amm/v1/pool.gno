@@ -21,6 +21,11 @@ const (
 	Shares = "shares" // address -> int64
 )
 
+// Prepare starts the delay once the pool has approved this realm.
+func Prepare(cur realm) {
+	proxy.Prepare(cross(cur), Impl{})
+}
+
 func Activate(cur realm) {
 	proxy.Register(cross(cur), Impl{})
 }

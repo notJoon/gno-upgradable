@@ -44,6 +44,7 @@ func main(cur realm) {
 	testing.SetRealm(testing.NewUserRealm(admin))
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v2")
 	println("approved:", vault.Approved())
+	v2.Prepare(cross(cur))
 	// v2 must wait out the delay while v1 is live.
 	println(revive(func() { v2.Activate(cross(cur)) }))
 	testing.SkipHeights(vault.UpgradeDelay)

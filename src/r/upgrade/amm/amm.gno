@@ -50,6 +50,12 @@ func init(cur realm) {
 	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay, "gno.land/r/upgrade/amm/v1")
 }
 
+// Prepare is called by the approved implementation realm to start the
+// delay, once its code is deployed.
+func Prepare(cur realm, next Pool) {
+	proxy.Prepare(0, cur, next)
+}
+
 // Register is called by the approved implementation realm to take over.
 // Taking a Pool makes the compiler check the typed entry points.
 func Register(cur realm, next Pool) {
@@ -71,6 +77,7 @@ func Swap(cur realm, zeroForOne bool, amountIn, minOut int64, to address, cb Swa
 }
 
 func Reserves() (r0, r1 int64) {
+	assertUnlocked()
 	impl, v := proxy.Current()
 	return impl.(Pool).Reserves(v)
 }
@@ -80,18 +87,30 @@ func Call(cur realm, method, args string) string {
 	return proxy.Call(0, cur, method, args)
 }
 
-func Query(method, args string) string { return proxy.Query(method, args) }
+func Query(method, args string) string {
+	assertUnlocked()
+	return proxy.Query(method, args)
+}
 
-func Render(path string) string { return proxy.Render(path) }
+func Render(path string) string {
+	assertUnlocked()
+	return proxy.Render(path)
+}
 
 // enter refuses a call made while another is running, such as one from a
 // swap callback, which would see the pool mid-swap. It returns the unlock.
 func enter() func() {
+	assertUnlocked()
+	locked = true
+	return func() { locked = false }
+}
+
+// assertUnlocked refuses reads during a call too. Mid-swap the output has
+// left but the reserves are not yet updated, so a price read there is wrong.
+func assertUnlocked() {
 	if locked {
 		panic("amm: reentrant call")
 	}
-	locked = true
-	return func() { locked = false }
 }
 
 // Approve lets pkgPath register after the delay. Unless it served before,

@@ -14,14 +14,20 @@ const (
 	ErrTooEarly     = "upgrade: approval is still in its delay"
 	ErrUnauthorized = "upgrade: caller is not the owner"
 	ErrFrozen       = "upgrade: upgrades are frozen"
+	ErrNotPrepared  = "upgrade: approved implementation has not called Prepare"
+	ErrPrepared     = "upgrade: approval is already prepared"
 )
 
 // Upgrader records a proxy realm's current implementation and the one
 // approved to replace it.
 //
-// Once an implementation is live, an approval can be accepted only after
-// delay blocks, so users can see it coming and leave first. The first
-// implementation has no delay because there is nothing to protect yet.
+// Once an implementation is live, an approval can be accepted only delay
+// blocks after the approved realm calls Prepare, so users can read the code
+// and leave first. The delay starts at Prepare, not at the approval, because
+// a path can be approved before anything is deployed there. Counting from
+// the approval would let the code appear in the last block of the delay.
+// The first implementation has no delay because there is nothing to protect
+// yet.
 //
 // Only the owner may approve, cancel or freeze. The owner is the address
 // that called the realm holding the Upgrader: a user, or a realm such as a
@@ -39,24 +45,30 @@ const (
 // then covers both a user and a governance realm, and it avoids the trap of
 // matching a path against a user call, whose path is empty.
 type Upgrader struct {
+	realm    string // the holding realm, named in every event
 	owner    address
 	delay    int64
 	pkgPath  string
 	approved string
 	eta      int64    // first height at which approved may be accepted
+	prepared bool     // eta is set: Prepare ran, or no delay was due
 	served   []string // every path that has been the implementation
 	frozen   bool
 }
 
-// New returns an Upgrader owned by owner whose approvals wait delay blocks.
-func New(owner address, delay int64) *Upgrader {
+// New returns an Upgrader held by the realm whose live cur is rlm, owned by
+// owner, whose approvals wait delay blocks.
+func New(_ int, rlm realm, owner address, delay int64) *Upgrader {
+	if !rlm.IsCurrent() {
+		panic(ErrSpoofedRealm)
+	}
 	if !owner.IsValid() {
 		panic("upgrade: invalid owner")
 	}
 	if delay < 0 {
 		panic("upgrade: negative delay")
 	}
-	return &Upgrader{owner: owner, delay: delay}
+	return &Upgrader{realm: rlm.PkgPath(), owner: owner, delay: delay}
 }
 
 // Approve lets the realm at pkgPath become the next implementation,
@@ -94,12 +106,21 @@ func (u *Upgrader) approve(pkgPath string) {
 	if len(parts) != 3 || parts[0] == "" || parts[1] != "r" || parts[2] == "" || isSub {
 		panic(ErrInvalidPath)
 	}
-	u.approved = pkgPath
-	u.eta = runtime.ChainHeight()
-	if u.pkgPath != "" {
-		u.eta += u.delay
+	// Only characters a package path can hold, which also keeps the path
+	// safe to print in the proxy's Render banner.
+	for _, c := range pkgPath {
+		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || strings.ContainsRune("./_-", c)) {
+			panic(ErrInvalidPath)
+		}
 	}
-	chain.Emit("UpgradeApproved", "pkgPath", pkgPath,
+	u.approved = pkgPath
+	// With nothing live there is no delay, so the approval needs no Prepare.
+	// eta alone cannot mark this: init runs at height 0 on a genesis chain.
+	u.eta, u.prepared = 0, u.pkgPath == ""
+	if u.prepared {
+		u.eta = runtime.ChainHeight()
+	}
+	u.emit("UpgradeApproved", "pkgPath", pkgPath,
 		"eta", strconv.FormatInt(u.eta, 10), "rollback", strconv.FormatBool(u.IsRollback()))
 }
 
@@ -109,8 +130,8 @@ func (u *Upgrader) Cancel(_ int, rlm realm) {
 	if u.approved == "" {
 		return
 	}
-	chain.Emit("UpgradeCancelled", "pkgPath", u.approved)
-	u.approved, u.eta = "", 0
+	u.emit("UpgradeCancelled", "pkgPath", u.approved)
+	u.approved, u.eta, u.prepared = "", 0, false
 }
 
 // Freeze ends upgrades for good, dropping any pending approval. The current
@@ -131,8 +152,8 @@ func (u *Upgrader) Freeze(_ int, rlm realm) {
 	// Clearing the approval is what stops a pending upgrade from landing
 	// after the freeze. Accept needs no frozen check of its own, because it
 	// refuses when nothing is approved and approve refuses once frozen.
-	u.approved, u.eta, u.frozen = "", 0, true
-	chain.Emit("UpgradeFrozen", "pkgPath", u.pkgPath)
+	u.approved, u.eta, u.prepared, u.frozen = "", 0, false, true
+	u.emit("UpgradeFrozen", "pkgPath", u.pkgPath)
 }
 
 // TransferOwnership hands the owner role to next. It still works after
@@ -146,7 +167,7 @@ func (u *Upgrader) TransferOwnership(_ int, rlm realm, next address) {
 	if !next.IsValid() {
 		panic("upgrade: invalid owner")
 	}
-	chain.Emit("OwnershipTransferred", "from", u.owner.String(), "to", next.String())
+	u.emit("OwnershipTransferred", "from", u.owner.String(), "to", next.String())
 	u.owner = next
 }
 
@@ -155,11 +176,28 @@ func (u *Upgrader) TransferOwnership(_ int, rlm realm, next address) {
 // frame has returned still reports that frame's Previous, so a value handed
 // out during the owner's call could otherwise pass for the owner later.
 func (u *Upgrader) assertOwner(_ int, rlm realm) {
-	if !rlm.IsCurrent() {
-		panic(ErrSpoofedRealm)
-	}
+	u.assertHolder(0, rlm)
 	if rlm.Previous().Address() != u.owner {
 		panic(ErrUnauthorized)
+	}
+}
+
+// Prepare starts the delay of the pending approval. rlm is the holding
+// realm's live cur, and its caller must be the approved realm, which proves
+// its code is deployed. It runs once per approval, because anyone can call
+// the approved realm's own Prepare, and a second call must not push the ETA
+// back.
+func (u *Upgrader) Prepare(_ int, rlm realm) {
+	u.assertPreparable(0, rlm)
+	u.eta, u.prepared = runtime.ChainHeight()+u.delay, true
+	u.emit("UpgradePrepared", "pkgPath", u.approved, "eta", strconv.FormatInt(u.eta, 10))
+}
+
+// assertPreparable runs Prepare's checks without preparing.
+func (u *Upgrader) assertPreparable(_ int, rlm realm) {
+	u.assertApproved(0, rlm)
+	if u.prepared {
+		panic(ErrPrepared)
 	}
 }
 
@@ -169,11 +207,11 @@ func (u *Upgrader) assertOwner(_ int, rlm realm) {
 func (u *Upgrader) Accept(_ int, rlm realm) {
 	caller := u.assertAcceptable(0, rlm)
 	rollback := u.IsRollback()
-	chain.Emit("Upgraded", "from", u.pkgPath, "to", caller, "rollback", strconv.FormatBool(rollback))
+	u.emit("Upgraded", "from", u.pkgPath, "to", caller, "rollback", strconv.FormatBool(rollback))
 	if !rollback {
 		u.served = append(u.served, caller)
 	}
-	u.pkgPath, u.approved, u.eta = caller, "", 0
+	u.pkgPath, u.approved, u.eta, u.prepared = caller, "", 0, false
 }
 
 // assertAcceptable runs Accept's checks without accepting, so Proxy can
@@ -181,20 +219,40 @@ func (u *Upgrader) Accept(_ int, rlm realm) {
 // that after Accept would leave the Upgrader naming an implementation the
 // Proxy refused, wherever the panic is recovered.
 func (u *Upgrader) assertAcceptable(_ int, rlm realm) string {
-	if !rlm.IsCurrent() {
-		panic(ErrSpoofedRealm)
+	caller := u.assertApproved(0, rlm)
+	if !u.prepared {
+		panic(ErrNotPrepared)
 	}
+	if runtime.ChainHeight() < u.eta {
+		panic(ErrTooEarly)
+	}
+	return caller
+}
 
+// assertApproved panics unless rlm is the holding realm's live cur and its
+// caller is the approved realm, and returns the caller's path.
+func (u *Upgrader) assertApproved(_ int, rlm realm) string {
+	u.assertHolder(0, rlm)
 	caller := rlm.Previous().PkgPath()
 	// A user caller has empty package path,
 	// so an empty approval must not match.
 	if u.approved == "" || caller != u.approved {
 		panic(ErrNotApproved)
 	}
-	if runtime.ChainHeight() < u.eta {
-		panic(ErrTooEarly)
-	}
 	return caller
+}
+
+// assertHolder panics unless rlm is the holding realm's live cur.
+func (u *Upgrader) assertHolder(_ int, rlm realm) {
+	if !rlm.IsCurrent() || rlm.PkgPath() != u.realm {
+		panic(ErrSpoofedRealm)
+	}
+}
+
+// emit emits an event with a "realm" attribute naming the holding realm.
+// The event's pkg_path is this library's, shared by every holding realm.
+func (u *Upgrader) emit(typ string, attrs ...string) {
+	chain.Emit(typ, append([]string{"realm", u.realm}, attrs...)...)
 }
 
 // PkgPath returns the package path of the current implementation,
@@ -230,5 +288,5 @@ func (u *Upgrader) IsRollback() bool {
 }
 
 // ETA returns the first block height at which the pending approval can be
-// accepted, or 0 if there is none.
+// accepted, or 0 if there is none or it is not prepared yet.
 func (u *Upgrader) ETA() int64 { return u.eta }
