@@ -7,7 +7,10 @@ import (
 	"strings"
 )
 
-const ErrUnexpectedCoins = "upgrade: method did not take the coins sent with it"
+const (
+	ErrReentrant       = "upgrade: reentrant call"
+	ErrUnexpectedCoins = "upgrade: method did not take the coins sent with it"
+)
 
 // Impl is what an implementation realm provides. Its API is the proxy's
 // API: the proxy forwards every call by method name, so a later version can
@@ -193,10 +196,10 @@ func (p *Proxy) Invoke(_ int, rlm realm, fn func(impl Impl, tx *Tx, c *Custody))
 	}
 }
 
-// Current returns the implementation and a read handle, for typed read
-// functions.
-func (p *Proxy) Current() (Impl, View) {
-	return p.current(), p.store.View()
+// Inspect runs fn with the current implementation and a read handle so a typed
+// proxy entry point can keep its reentrancy guard around the whole read.
+func (p *Proxy) Inspect(fn func(impl Impl, v View)) {
+	fn(p.current(), p.store.View())
 }
 
 func (p *Proxy) Query(method, args string) string {

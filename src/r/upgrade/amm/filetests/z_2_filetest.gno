@@ -42,5 +42,5 @@ func main(cur realm) {
 }
 
 // Output:
-// amm: reentrant call
+// upgrade: reentrant call
 // impl: gno.land/r/upgrade/amm/v1

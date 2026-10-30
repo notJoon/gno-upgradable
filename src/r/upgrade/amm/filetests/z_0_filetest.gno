@@ -76,4 +76,4 @@ func must(err error) {
 // swap out: 91 reserves: 1200 1009
 // pool A: 1200 B: 1009
 // amm: callback underpaid
-// amm: reentrant call
+// upgrade: reentrant call

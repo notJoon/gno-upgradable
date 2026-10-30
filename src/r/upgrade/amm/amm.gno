@@ -53,18 +53,19 @@ func init(cur realm) {
 // Prepare is called by the approved implementation realm to start the
 // delay, once its code is deployed.
 func Prepare(cur realm, next Pool) {
+	defer guard()()
 	proxy.Prepare(0, cur, next)
 }
 
 // Bootstrap installs the first approved implementation without a delay.
 func Bootstrap(cur realm, first Pool) {
-	defer enter()()
+	defer guard()()
 	proxy.Bootstrap(0, cur, first)
 }
 
 // Register activates the Pool saved by Prepare.
 func Register(cur realm) {
-	defer enter()()
+	defer guard()()
 	proxy.Register(0, cur)
 }
 
@@ -74,7 +75,7 @@ func Swap(cur realm, zeroForOne bool, amountIn, minOut int64, to address, cb Swa
 	if cb == nil {
 		panic("amm: nil callback")
 	}
-	defer enter()()
+	defer guard()()
 	proxy.Invoke(0, cur, func(impl upgrade.Impl, tx *upgrade.Tx, c *upgrade.Custody) {
 		pay := func(owed int64) { cb(cross(cur), owed, &CallbackMarker{}) }
 		out = impl.(Pool).Swap(tx, c, zeroForOne, amountIn, minOut, to, pay)
@@ -84,12 +85,14 @@ func Swap(cur realm, zeroForOne bool, amountIn, minOut int64, to address, cb Swa
 
 func Reserves() (r0, r1 int64) {
 	assertUnlocked()
-	impl, v := proxy.Current()
-	return impl.(Pool).Reserves(v)
+	proxy.Inspect(func(impl upgrade.Impl, v upgrade.View) {
+		r0, r1 = impl.(Pool).Reserves(v)
+	})
+	return r0, r1
 }
 
 func Call(cur realm, method, args string) string {
-	defer enter()()
+	defer guard()()
 	return proxy.Call(0, cur, method, args)
 }
 
@@ -103,32 +106,28 @@ func Render(path string) string {
 	return proxy.Render(path)
 }
 
-// enter refuses a call made while another is running, such as one from a
-// swap callback, which would see the pool mid-swap. It returns the unlock.
-func enter() func() {
-	assertUnlocked()
-	locked = true
-	return func() { locked = false }
-}
-
-// assertUnlocked refuses reads during a call too. Mid-swap the output has
-// left but the reserves are not yet updated, so a price read there is wrong.
-func assertUnlocked() {
-	if locked {
-		panic("amm: reentrant call")
-	}
-}
-
 // Approve lets pkgPath register after the delay. Unless it served before,
 // it must answer every method in API.
-func Approve(cur realm, pkgPath string) { proxy.Approve(0, cur, pkgPath) }
+func Approve(cur realm, pkgPath string) {
+	defer guard()()
+	proxy.Approve(0, cur, pkgPath)
+}
 
-func Cancel(cur realm) { proxy.Cancel(0, cur) }
+func Cancel(cur realm) {
+	defer guard()()
+	proxy.Cancel(0, cur)
+}
 
 // Freeze ends upgrades for good. The current implementation keeps serving.
-func Freeze(cur realm) { proxy.Freeze(0, cur) }
+func Freeze(cur realm) {
+	defer guard()()
+	proxy.Freeze(0, cur)
+}
 
-func TransferAdmin(cur realm, newAdmin address) { proxy.TransferOwnership(0, cur, newAdmin) }
+func TransferAdmin(cur realm, newAdmin address) {
+	defer guard()()
+	proxy.TransferOwnership(0, cur, newAdmin)
+}
 
 func Admin() address     { return proxy.Owner() }
 func Frozen() bool       { return proxy.Frozen() }
@@ -137,12 +136,33 @@ func Approved() string   { return proxy.Approved() }
 func ApprovedETA() int64 { return proxy.ETA() }
 
 // Methods lists the methods Call and Query answer now.
-func Methods() (calls, queries []string) { return proxy.Methods() }
+func Methods() (calls, queries []string) {
+	assertUnlocked()
+	return proxy.Methods()
+}
 
 // API lists every method any implementation has served. After a rollback
 // some may be unavailable; a later implementation must answer them all.
-func API() (calls, queries []string) { return proxy.API() }
+func API() (calls, queries []string) {
+	assertUnlocked()
+	return proxy.API()
+}
 
 // Missing lists the API methods next lacks, so an implementation's tests
 // can check it before approval.
-func Missing(next upgrade.Impl) (calls, queries []string) { return proxy.Missing(next) }
+func Missing(next upgrade.Impl) (calls, queries []string) {
+	assertUnlocked()
+	return proxy.Missing(next)
+}
+
+func guard() func() {
+	assertUnlocked()
+	locked = true
+	return func() { locked = false }
+}
+
+func assertUnlocked() {
+	if locked {
+		panic(upgrade.ErrReentrant)
+	}
+}

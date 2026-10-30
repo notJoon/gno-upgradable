@@ -57,5 +57,5 @@ func must(err error) {
 
 // Output:
 // reserves: 1000 1000 alice shares: 1000
-// amm: reentrant call
-// amm: reentrant call
+// upgrade: reentrant call
+// upgrade: reentrant call
