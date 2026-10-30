@@ -83,9 +83,10 @@ type Impl interface {
 //     unsafe, so prefer adding a new table.
 //   - Coins stay at the proxy's address throughout.
 type Proxy struct {
-	u     *Upgrader
-	store *Store
-	impl  Impl
+	u       *Upgrader
+	store   *Store
+	impl    Impl
+	pending Impl
 
 	// calls and queries are the API: every method name any implementation
 	// has served. The proxy keeps them so that a rollback cannot shrink it.
@@ -101,17 +102,35 @@ func NewProxy(_ int, rlm realm, owner address, delay int64, first string) *Proxy
 	return p
 }
 
-// Register makes next the implementation and runs its Migrate. rlm is the
-// proxy's live cur, so the caller must be the approved realm.
-//
-// Unless this is a rollback, next must answer the whole API. The check runs
-// before anything changes, so a refused next leaves the proxy as it was.
-func (p *Proxy) Register(_ int, rlm realm, next Impl) {
+// Bootstrap installs the first implementation without a delay. rlm is the
+// proxy's live cur, so the caller must be the first approved realm.
+func (p *Proxy) Bootstrap(_ int, rlm realm, first Impl) {
+	if p.impl != nil {
+		panic("upgrade: implementation already registered")
+	}
 	p.u.assertAcceptable(0, rlm)
-	p.assertAPI(next)
+	p.assertAPI(first)
+	p.install(0, rlm, first)
+}
+
+// Register installs the implementation saved by Prepare and runs its Migrate.
+// rlm is the proxy's live cur, so the caller must be the approved realm.
+//
+// Unless this is a rollback, the pending implementation must answer the whole
+// API. The check runs before anything changes.
+func (p *Proxy) Register(_ int, rlm realm) {
+	p.u.assertAcceptable(0, rlm)
+	if p.pending == nil {
+		panic("upgrade: no prepared implementation")
+	}
+	p.assertAPI(p.pending)
+	p.install(0, rlm, p.pending)
+}
+
+func (p *Proxy) install(_ int, rlm realm, next Impl) {
 	from := p.u.PkgPath()
 	p.u.Accept(0, rlm)
-	p.impl = next
+	p.impl, p.pending = next, nil
 	calls, queries := next.Methods()
 	p.calls, p.queries = union(p.calls, calls), union(p.queries, queries)
 	next.Migrate(p.store.Begin(0, rlm), NewCustody(0, rlm), from)
@@ -125,6 +144,7 @@ func (p *Proxy) Prepare(_ int, rlm realm, next Impl) {
 	p.u.assertPreparable(0, rlm)
 	p.assertAPI(next)
 	p.u.Prepare(0, rlm)
+	p.pending = next
 }
 
 // assertAPI panics unless next answers the whole API or this is a rollback.
@@ -233,9 +253,21 @@ func (p *Proxy) Missing(next Impl) (calls, queries []string) {
 // live cur and check its caller is the owner, so the realm forwards them
 // as is, with no check of its own. See Upgrader for why the check is here.
 // The realm must pass its own cur, not cur.Previous(), or the check fails.
-func (p *Proxy) Approve(_ int, rlm realm, pkgPath string) { p.u.Approve(0, rlm, pkgPath) }
-func (p *Proxy) Cancel(_ int, rlm realm)                  { p.u.Cancel(0, rlm) }
-func (p *Proxy) Freeze(_ int, rlm realm)                  { p.u.Freeze(0, rlm) }
+func (p *Proxy) Approve(_ int, rlm realm, pkgPath string) {
+	p.u.Approve(0, rlm, pkgPath)
+	p.pending = nil
+}
+
+func (p *Proxy) Cancel(_ int, rlm realm) {
+	p.u.Cancel(0, rlm)
+	p.pending = nil
+}
+
+func (p *Proxy) Freeze(_ int, rlm realm) {
+	p.u.Freeze(0, rlm)
+	p.pending = nil
+}
+
 func (p *Proxy) TransferOwnership(_ int, rlm realm, next address) {
 	p.u.TransferOwnership(0, rlm, next)
 }

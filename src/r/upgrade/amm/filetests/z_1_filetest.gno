@@ -18,7 +18,7 @@ func main(cur realm) {
 	alice := testutils.TestAddress("alice")
 	pool := chain.PackageAddress("gno.land/r/upgrade/amm")
 	self := chain.PackageAddress("gno.land/r/demo/main")
-	v1.Activate(cross(cur))
+	v1.Bootstrap(cross(cur))
 
 	testing.SetRealm(testing.NewUserRealm(alice))
 	testtoken.Faucet(cross(cur), 1000)

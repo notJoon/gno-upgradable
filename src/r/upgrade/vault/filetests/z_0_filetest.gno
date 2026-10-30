@@ -23,7 +23,7 @@ func main(cur realm) {
 	vaultAddr := chain.PackageAddress("gno.land/r/upgrade/vault")
 	bnk := banker.NewReadonlyBanker()
 
-	v1.Activate(cross(cur))
+	v1.Bootstrap(cross(cur))
 	println("impl:", vault.ImplPath())
 
 	// alice deposits 1000ugnot through a direct call.

@@ -23,10 +23,14 @@ func Prepare(cur realm) {
 	proxy.Prepare(cross(cur), Impl{})
 }
 
-// Activate makes v1 the vault's implementation.
-// It succeeds only while the vault has approved this realm.
+// Bootstrap installs v1 as the vault's first implementation.
+func Bootstrap(cur realm) {
+	proxy.Bootstrap(cross(cur), Impl{})
+}
+
+// Activate restores v1 after it has prepared as a rollback.
 func Activate(cur realm) {
-	proxy.Register(cross(cur), Impl{})
+	proxy.Register(cross(cur))
 }
 
 type Impl struct{}

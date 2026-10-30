@@ -17,7 +17,7 @@ import (
 )
 
 func main(cur realm) {
-	v1.Activate(cross(cur))
+	v1.Bootstrap(cross(cur))
 
 	testing.IssueCoins(chain.PackageAddress("gno.land/r/upgrade/vault"), chain.Coins{{"ugnot", 100}})
 	testing.SetOriginSend(chain.Coins{{"ugnot", 100}})

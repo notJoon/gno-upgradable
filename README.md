@@ -18,13 +18,14 @@ liquidity and arithmetic rules are deliberately simplified.
 
 1. The proxy creates `upgrade.Proxy` with an owner, a delay in blocks, and the
    first implementation path.
-2. The first implementation calls `Register`. It has no delay because there is
-   no live code to protect yet.
+2. The first implementation calls `Bootstrap` with its fixed implementation
+   value. It has no delay because there is no live code to protect yet.
 3. The owner deploys and approves the next implementation realm.
 4. The approved realm calls `Prepare`. This checks the grow-only method API and
    starts the full delay only after the code exists on-chain.
-5. At or after `ETA`, the same realm calls `Register`. The proxy switches the
-   implementation and calls `Migrate` in the same transaction.
+5. At or after `ETA`, the same realm calls parameterless `Register`. The proxy
+   activates the exact implementation saved by `Prepare` and calls `Migrate`
+   in the same transaction.
 
 The owner may cancel a pending upgrade. `Freeze` permanently disables future
 upgrades without disabling implementation-level admin methods. A rollback is
@@ -44,9 +45,8 @@ audit and exit; it does not sandbox bad code. In particular:
 
 - Keep implementation values stateless. Store application state through `Tx`
   and hold assets through `Custody`.
-- Export parameterless `Prepare` and `Activate` functions that pass a fixed
-  implementation value. Never let a caller choose the `Impl` registered by an
-  approved realm.
+- Export parameterless `Prepare` and `Activate` functions. `Prepare` must pass a
+  fixed implementation value; `Activate` registers that saved value.
 - `Methods` checks names and call/query placement only. Review argument,
   result, authorization, and semantic compatibility separately.
 - Add tables when changing schemas. An in-place row-format change can make an
@@ -91,4 +91,4 @@ Before deploying a proxy:
   rollback, unexpected coins, and retained-handle rejection;
 - test callback and asset flows on a real node, not only with filetests; and
 - audit both the approved realm and the concrete implementation type it passes
-  to `Register`.
+  to `Prepare`.

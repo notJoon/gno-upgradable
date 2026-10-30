@@ -50,9 +50,14 @@ func Prepare(cur realm, next upgrade.Impl) {
 	proxy.Prepare(0, cur, next)
 }
 
-// Register is called by the approved implementation realm to take over.
-func Register(cur realm, next upgrade.Impl) {
-	proxy.Register(0, cur, next)
+// Bootstrap installs the first approved implementation without a delay.
+func Bootstrap(cur realm, first upgrade.Impl) {
+	proxy.Bootstrap(0, cur, first)
+}
+
+// Register activates the implementation saved by Prepare.
+func Register(cur realm) {
+	proxy.Register(0, cur)
 }
 
 func Call(cur realm, method, args string) string {

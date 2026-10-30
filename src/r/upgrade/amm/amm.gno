@@ -56,11 +56,16 @@ func Prepare(cur realm, next Pool) {
 	proxy.Prepare(0, cur, next)
 }
 
-// Register is called by the approved implementation realm to take over.
-// Taking a Pool makes the compiler check the typed entry points.
-func Register(cur realm, next Pool) {
+// Bootstrap installs the first approved implementation without a delay.
+func Bootstrap(cur realm, first Pool) {
 	defer enter()()
-	proxy.Register(0, cur, next)
+	proxy.Bootstrap(0, cur, first)
+}
+
+// Register activates the Pool saved by Prepare.
+func Register(cur realm) {
+	defer enter()()
+	proxy.Register(0, cur)
 }
 
 // Swap swaps amountIn of token0 for token1 (or the reverse), sending the

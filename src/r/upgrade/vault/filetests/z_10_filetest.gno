@@ -28,13 +28,13 @@ func (sticky) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) stri
 }
 
 func main(cur realm) {
-	v1.Activate(cross(cur))
+	v1.Bootstrap(cross(cur))
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
 	vault.Approve(cross(cur), "gno.land/r/demo/main")
 	testing.SetRealm(testing.NewCodeRealm("gno.land/r/demo/main"))
 	vault.Prepare(cross(cur), sticky{})
 	testing.SkipHeights(vault.UpgradeDelay)
-	vault.Register(cross(cur), sticky{})
+	vault.Register(cross(cur))
 	testing.SetRealm(testing.NewUserRealm(testutils.TestAddress("alice")))
 	vault.Call(cross(cur), "Deposit", "")
 }

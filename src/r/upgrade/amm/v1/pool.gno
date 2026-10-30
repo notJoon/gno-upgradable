@@ -26,8 +26,12 @@ func Prepare(cur realm) {
 	proxy.Prepare(cross(cur), Impl{})
 }
 
+func Bootstrap(cur realm) {
+	proxy.Bootstrap(cross(cur), Impl{})
+}
+
 func Activate(cur realm) {
-	proxy.Register(cross(cur), Impl{})
+	proxy.Register(cross(cur))
 }
 
 type Impl struct{}
