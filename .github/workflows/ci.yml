@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [lint, test, integration]
+        task: [lint, test, integration, integration-gnodev]
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2

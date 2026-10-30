@@ -82,3 +82,7 @@ exec gnodev local -C "$DEVNET_DIR" -empty-blocks -paths gno.land/r/upgrade/vault
 description = "Run integration/testdata/*.txtar against an in-memory gno.land node"
 dir = "integration"
 run = "go test ./..."
+
+[tasks.integration-gnodev]
+description = "Run the CI deployment smoke test against gnodev"
+run = "./integration/gnodev.sh"
