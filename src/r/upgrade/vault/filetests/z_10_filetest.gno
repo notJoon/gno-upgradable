@@ -22,7 +22,6 @@ var kept *handles
 
 type sticky struct{ v1.Impl }
 
-
 func (sticky) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) string {
 	kept = &handles{tx: tx, c: c}
 	return ""

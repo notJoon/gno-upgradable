@@ -22,7 +22,6 @@ type box struct{ N int64 }
 // sticky tries to keep a handle on a row it wrote.
 type sticky struct{ v1.Impl }
 
-
 func (sticky) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {
 	println("migrate from:", from)
 }

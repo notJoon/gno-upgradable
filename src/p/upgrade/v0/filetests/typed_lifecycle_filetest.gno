@@ -39,7 +39,7 @@ func init(cur realm) {
 	proxy = upgrade.NewProxy(0, cur, admin, 1)
 }
 
-func approve(cur realm, path string)     { proxy.Approve(0, cur, path) }
+func approve(cur realm, path string)    { proxy.Approve(0, cur, path) }
 func upgradeTo(cur realm, next Counter) { proxy.Upgrade(0, cur, next) }
 
 func add(cur realm) {

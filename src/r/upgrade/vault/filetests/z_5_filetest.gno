@@ -18,7 +18,6 @@ import (
 // noWithdraw drops Withdraw.
 type noWithdraw struct{ v1.Impl }
 
-
 func (noWithdraw) Methods() (calls, queries []upgrade.Method) {
 	return []upgrade.Method{{Name: "Deposit", Schema: "v1:void->void"}},
 		[]upgrade.Method{{Name: "BalanceOf", Schema: "v1:address->int64"}}
@@ -26,7 +25,6 @@ func (noWithdraw) Methods() (calls, queries []upgrade.Method) {
 
 // moved turns the BalanceOf query into a call.
 type moved struct{ v1.Impl }
-
 
 func (moved) Methods() (calls, queries []upgrade.Method) {
 	return []upgrade.Method{
@@ -39,7 +37,6 @@ func (moved) Methods() (calls, queries []upgrade.Method) {
 // changedSchema keeps Withdraw's name but changes its caller contract.
 type changedSchema struct{ v1.Impl }
 
-
 func (changedSchema) Methods() (calls, queries []upgrade.Method) {
 	return []upgrade.Method{
 		{Name: "Deposit", Schema: "v1:void->void"},
@@ -49,7 +46,6 @@ func (changedSchema) Methods() (calls, queries []upgrade.Method) {
 
 // retired keeps CollectFees listed but retires it.
 type retired struct{ v1.Impl }
-
 
 func (retired) Methods() (calls, queries []upgrade.Method) {
 	return []upgrade.Method{
@@ -74,8 +70,6 @@ func approve(cur realm, path string) {
 
 // noFees is v1 as a new implementation: it lacks v2's CollectFees.
 type noFees struct{ v1.Impl }
-
-
 
 func main(cur realm) {
 	alice := testutils.TestAddress("alice")

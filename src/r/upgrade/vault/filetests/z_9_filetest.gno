@@ -16,7 +16,6 @@ import (
 // v3 answers the whole API v2 left.
 type v3 struct{ v1.Impl }
 
-
 func (v3) Methods() (calls, queries []upgrade.Method) {
 	return []upgrade.Method{
 		{Name: "Deposit", Schema: "v1:void->void"},

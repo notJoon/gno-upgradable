@@ -16,7 +16,6 @@ import (
 
 type next struct{ v1.Impl }
 
-
 func (n next) Methods() (calls, queries []upgrade.Method) {
 	calls, queries = n.Impl.Methods()
 	return append(calls, upgrade.Method{Name: "ApproveA", Schema: "v1:void->void"}), queries

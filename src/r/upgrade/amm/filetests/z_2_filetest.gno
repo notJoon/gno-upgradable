@@ -16,7 +16,6 @@ import (
 
 type next struct{ v1.Impl }
 
-
 func main(cur realm) {
 	alice := testutils.TestAddress("alice")
 	pool := chain.PackageAddress("gno.land/r/upgrade/amm")
