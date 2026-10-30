@@ -109,10 +109,8 @@ func (u *Upgrader) approve(pkgPath string) {
 	}
 	// Only characters a package path can hold, which also keeps the path
 	// safe to print in the proxy's Render banner.
-	for _, c := range pkgPath {
-		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || strings.ContainsRune("./_-", c)) {
-			panic(ErrInvalidPath)
-		}
+	if !onlyChars(pkgPath, "./_-") {
+		panic(ErrInvalidPath)
 	}
 	u.approved = pkgPath
 	// With nothing live there is no delay, so the approval needs no Prepare.
@@ -322,3 +320,13 @@ func (u *Upgrader) IsRollback() bool {
 // ETA returns the first block height at which the pending approval can be
 // accepted, or 0 if there is none or it is not prepared yet.
 func (u *Upgrader) ETA() int64 { return u.eta }
+
+// onlyChars reports whether s holds only lowercase letters, digits and extra.
+func onlyChars(s, extra string) bool {
+	for _, c := range s {
+		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || strings.ContainsRune(extra, c)) {
+			return false
+		}
+	}
+	return true
+}

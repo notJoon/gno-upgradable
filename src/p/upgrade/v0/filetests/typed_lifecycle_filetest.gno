@@ -69,6 +69,7 @@ func main(cur realm) {
 	println(proxy.ImplID(), value())
 
 	approve(cross(cur), path)
+	print(proxy.Render(""))
 	testing.SetRealm(testing.NewCodeRealm(path))
 	prepare(cross(cur))
 	testing.SkipHeights(1)
@@ -81,4 +82,7 @@ func main(cur realm) {
 
 // Output:
 // gno.land/r/demo/main:typed-v1 1
+// > [!WARNING]
+// > Upgrade approved: `gno.land/r/demo/main`. Its delay of 1 blocks starts when it calls Prepare.
+//
 // gno.land/r/demo/main:typed-v2 3

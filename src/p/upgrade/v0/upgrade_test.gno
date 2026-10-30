@@ -156,3 +156,11 @@ func TestLifecycleOnlyImplementation(cur realm, t *testing.T) {
 	calls, queries := p.Methods()
 	uassert.Equal(t, 0, len(calls)+len(queries))
 }
+
+func TestLifecycleOnlyQueryReportsUnknownMethod(cur realm, t *testing.T) {
+	p := NewProxy(0, cur, owner, 0)
+	p.impl = lifecycleOnly{}
+	uassert.PanicsWithMessage(t, cur, "upgrade: unknown method Nope", func() {
+		p.Query("Nope", "")
+	})
+}

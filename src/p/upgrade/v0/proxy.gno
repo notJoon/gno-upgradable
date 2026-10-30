@@ -144,8 +144,9 @@ func (p *Proxy) Bootstrap(_ int, rlm realm, first Impl) {
 	}
 	p.u.assertAcceptable(0, rlm)
 	meta := inspectImpl(first)
-	p.assertAPI(first, meta)
-	p.install(0, rlm, first, meta)
+	rollback := p.isRollback(p.u.Approved(), meta)
+	p.assertAPI(meta, rollback)
+	p.install(0, rlm, first, meta, rollback)
 }
 
 // Register installs the implementation saved by Prepare and runs its Migrate.
@@ -162,14 +163,14 @@ func (p *Proxy) Register(_ int, rlm realm) {
 	if meta.id != p.pendingMeta.id || meta.manifestHash != p.pendingMeta.manifestHash {
 		panic("upgrade: prepared implementation changed")
 	}
-	p.assertAPI(p.pending, p.pendingMeta)
-	p.install(0, rlm, p.pending, p.pendingMeta)
+	rollback := p.isRollback(p.u.Approved(), meta)
+	p.assertAPI(meta, rollback)
+	p.install(0, rlm, p.pending, meta, rollback)
 }
 
-func (p *Proxy) install(_ int, rlm realm, next Impl, meta implMeta) {
+func (p *Proxy) install(_ int, rlm realm, next Impl, meta implMeta, rollback bool) {
 	from := p.u.PkgPath()
 	path := p.u.Approved()
-	rollback := p.isRollback(path, meta)
 	p.u.accept(0, rlm, rollback, "implementation", meta.id, "manifestHash", meta.manifestHash)
 	p.impl, p.pending = next, nil
 	p.activeMeta, p.pendingMeta = meta, implMeta{}
@@ -193,27 +194,18 @@ func (p *Proxy) Prepare(_ int, rlm realm, next Impl) {
 	p.u.assertPreparable(0, rlm)
 	meta := inspectImpl(next)
 	rollback := p.isRollback(p.u.Approved(), meta)
-	p.assertAPI(next, meta)
+	p.assertAPI(meta, rollback)
 	p.u.prepare(0, rlm, "implementation", meta.id, "manifestHash", meta.manifestHash,
 		"rollback", strconv.FormatBool(rollback))
 	p.pending = next
 	p.pendingMeta = meta
 }
 
-// assertAPI panics unless next answers the whole API or this is a rollback.
-func (p *Proxy) assertAPI(next Impl, meta implMeta) {
-	if next == nil {
-		panic("upgrade: nil implementation")
-	}
-	if p.isRollback(p.u.Approved(), meta) {
+// assertAPI panics unless meta answers the whole API or this is a rollback.
+// An implementation that is not a Dispatcher answers no methods.
+func (p *Proxy) assertAPI(meta implMeta, rollback bool) {
+	if rollback {
 		return
-	}
-	_, ok := next.(Dispatcher)
-	if !ok {
-		if len(p.calls)+len(p.queries) == 0 {
-			return
-		}
-		panic("upgrade: next implementation is not a dispatcher")
 	}
 	calls, queries := minus(p.calls, meta.calls), minus(p.queries, meta.queries)
 	if len(calls)+len(queries) > 0 {
@@ -263,20 +255,21 @@ func (p *Proxy) Inspect(fn func(impl Impl, v View)) {
 
 func (p *Proxy) Query(method, args string) string {
 	impl := p.current()
-	dispatcher := impl.(Dispatcher)
 	assertAnswers(method, p.activeMeta.queries, p.queries)
-	return dispatcher.Query(p.store.View(), method, args)
+	return impl.(Dispatcher).Query(p.store.View(), method, args)
 }
 
 // Render puts a banner for a pending upgrade or a freeze above the
 // implementation's output. The proxy writes it, so no implementation can
-// hide an upgrade users should see coming.
+// hide an upgrade users should see coming. An implementation that is not a
+// Renderer gets the banner alone.
 func (p *Proxy) Render(path string) string {
 	renderer, ok := p.current().(Renderer)
+	banner := p.banner()
 	if !ok {
-		panic("upgrade: implementation is not a renderer")
+		return banner
 	}
-	return p.banner() + renderer.Render(p.store.View(), path)
+	return banner + renderer.Render(p.store.View(), path)
 }
 
 // banner needs no escaping: approve allows only package path characters.
@@ -456,10 +449,8 @@ func inspectImpl(impl Impl) implMeta {
 	if id == "" || len(id) > 256 {
 		panic("upgrade: invalid implementation ID")
 	}
-	for _, c := range id {
-		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || strings.ContainsRune("./_:-@", c)) {
-			panic("upgrade: invalid implementation ID")
-		}
+	if !onlyChars(id, "./_:-@") {
+		panic("upgrade: invalid implementation ID")
 	}
 	manifest := ""
 	if dispatcher, ok := impl.(Dispatcher); ok {
