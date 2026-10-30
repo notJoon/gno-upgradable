@@ -136,7 +136,6 @@ func (p *Proxy) install(_ int, rlm realm, next Impl) {
 	p.calls, p.queries = union(p.calls, calls), union(p.queries, queries)
 	c := NewCustody(0, rlm)
 	next.Migrate(p.store.Begin(0, rlm), c, from)
-	c.revokeApprovals()
 }
 
 // Prepare starts the delay of the pending approval. rlm is the proxy's live
@@ -188,7 +187,6 @@ func (p *Proxy) Invoke(_ int, rlm realm, fn func(impl Impl, tx *Tx, c *Custody))
 	tx := p.store.Begin(0, rlm)
 	c := NewCustody(0, rlm)
 	fn(p.current(), tx, c)
-	c.revokeApprovals()
 	if !tx.sentTaken {
 		for _, coin := range tx.sent() {
 			if coin.Amount != 0 {
