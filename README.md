@@ -27,6 +27,13 @@ liquidity and arithmetic rules are deliberately simplified.
    activates the exact implementation saved by `Prepare` and calls `Migrate`
    in the same transaction.
 
+![Where the vault's data lives in three steps: v1 writes rows into the proxy's Store, an upgrade switches the implementation without moving rows, and v2 reads v1's rows and adds a table](docs/storage.svg)
+
+All persistent data lives in the proxy realm, which owns it and pays for its
+storage. Implementation realms hold no state. An upgrade does not move data: it
+changes which code reads and writes the proxy's `Store`, so v2 reads the rows v1
+wrote and adds new tables beside them.
+
 The package authenticates the approved realm when it calls `Bootstrap`, but it
 cannot query whether an arbitrary package path is already deployed. The owner
 must therefore treat “deploy, inspect, then approve” as an operational
@@ -64,6 +71,12 @@ call:
 - Handles cannot be forged. Opening one over the proxy requires the proxy's
   live `cur`, and a zero value declared elsewhere has no realm and refuses
   every call.
+
+![Reference graph of the proxy, its implementations and their capabilities during a call, after an upgrade, and when the proxy's cur is passed instead](docs/capabilities.svg)
+
+A shows the references an implementation holds during a call. B shows that a
+retired implementation holds none. C shows what it would keep if it were given
+the proxy's `cur`.
 
 This limits what a replaced implementation can do. It does not limit an
 approved implementation while it runs, as the next section explains.
