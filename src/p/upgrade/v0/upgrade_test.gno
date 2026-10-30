@@ -114,14 +114,14 @@ func (metadataImpl) Call(tx *Tx, c *Custody, method, args string) string { retur
 func (metadataImpl) Query(v View, method, args string) string            { return "" }
 
 func TestImplementationMetadata(cur realm, t *testing.T) {
-	id, hash, _, _ := inspectImpl(metadataImpl{id: "example:v1", schema: "v1:string->string"})
-	uassert.Equal(t, "example:v1", id)
-	uassert.Equal(t, 64, len(hash))
+	metadata := inspectImpl(metadataImpl{id: "example:v1", schema: "v1:string->string"})
+	uassert.Equal(t, "example:v1", metadata.id)
+	uassert.Equal(t, 64, len(metadata.manifestHash))
 
-	_, sameManifest, _, _ := inspectImpl(metadataImpl{id: "example:v2", schema: "v1:string->string"})
-	uassert.Equal(t, hash, sameManifest)
-	_, changedManifest, _, _ := inspectImpl(metadataImpl{id: "example:v1", schema: "v2:string->string"})
-	uassert.NotEqual(t, hash, changedManifest)
+	sameManifest := inspectImpl(metadataImpl{id: "example:v2", schema: "v1:string->string"})
+	uassert.Equal(t, metadata.manifestHash, sameManifest.manifestHash)
+	changedManifest := inspectImpl(metadataImpl{id: "example:v1", schema: "v2:string->string"})
+	uassert.NotEqual(t, metadata.manifestHash, changedManifest.manifestHash)
 
 	uassert.PanicsWithMessage(t, cur, "upgrade: invalid implementation ID", func() {
 		inspectImpl(metadataImpl{id: "Example", schema: "v1"})

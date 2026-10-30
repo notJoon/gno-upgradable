@@ -150,10 +150,10 @@ invariant for the first implementation.
 
 The owner may cancel a pending upgrade. `Freeze` permanently disables future
 upgrades without disabling implementation-level admin methods. A rollback is
-the same delayed lifecycle applied to a previously served realm path and
-implementation ID pair. Ownership transfer completes only after the nominated
-address calls `AcceptOwnership` through the proxy's corresponding forwarding
-function.
+the same delayed lifecycle applied to a previously served realm path,
+implementation ID, and manifest hash tuple. Ownership transfer completes only
+after the nominated address calls `AcceptOwnership` through the proxy's
+corresponding forwarding function.
 
 ## Why object capabilities
 
