@@ -253,19 +253,17 @@ ledger before changing `GNO_REF`; keep `integration/go.mod` on the same tag.
 ```sh
 mise run setup
 mise run criteria
-mise run lint
-mise run test
-mise run integration
 mise run integration-gnodev
 ```
 
 `criteria` is the CI gate for machine-checkable criteria: lint, package tests,
 filetests, and integration tests. Manual interface and portability review is
-kept out of CI. `test` runs package tests and filetests. `integration` starts an
-in-memory gno.land node and verifies signed upgrade transactions, state
-continuity, and AMM callback reentrancy with the pinned mainnet release. CI
-additionally runs `integration-gnodev`, which deploys v2 with `addpkg` against
-an isolated gnodev chain and checks that state survives activation.
+kept out of CI. Run `lint`, `test`, or `integration` individually for a targeted
+check. `test` runs package tests and filetests. `integration` starts an in-memory
+gno.land node and verifies signed upgrade transactions, state continuity, and
+AMM callback reentrancy with the pinned mainnet release. CI additionally runs
+`integration-gnodev`, which deploys v2 with `addpkg` against an isolated gnodev
+chain and checks that state survives activation.
 
 Before deploying a proxy:
 
