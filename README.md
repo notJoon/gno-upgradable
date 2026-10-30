@@ -14,6 +14,87 @@ examples:
 The examples exist to test the pattern. The AMM is not production-ready: its
 liquidity and arithmetic rules are deliberately simplified.
 
+## Quick start
+
+The proxy realm holds an `upgrade.Proxy` and forwards its crossing functions
+to it:
+
+```go
+// Package app is the proxy. Its address and API never change.
+package app
+
+import "gno.land/p/upgrade/v0"
+
+const admin address = "g1..."
+
+var proxy *upgrade.Proxy
+
+func init(cur realm) {
+	proxy = upgrade.NewProxy(0, cur, admin, 17280) // delay in blocks
+}
+
+func Approve(cur realm, pkgPath string)          { proxy.Approve(0, cur, pkgPath) }
+func Bootstrap(cur realm, first upgrade.Impl)    { proxy.Bootstrap(0, cur, first) }
+func Prepare(cur realm, next upgrade.Impl)       { proxy.Prepare(0, cur, next) }
+func Register(cur realm)                         { proxy.Register(0, cur) }
+func Call(cur realm, method, args string) string { return proxy.Call(0, cur, method, args) }
+func Query(method, args string) string           { return proxy.Query(method, args) }
+func Render(path string) string                  { return proxy.Render(path) }
+```
+
+Each implementation realm provides an `upgrade.Impl` value and registers itself
+with parameterless crossing functions:
+
+```go
+// Package app (v1) is an implementation. It holds no state of its own.
+package app
+
+import (
+	"strconv"
+
+	"gno.land/p/upgrade/v0"
+	proxy "gno.land/r/you/app"
+)
+
+func Bootstrap(cur realm) { proxy.Bootstrap(cross(cur), Impl{}) } // first version
+func Prepare(cur realm)   { proxy.Prepare(cross(cur), Impl{}) }   // later versions
+func Activate(cur realm)  { proxy.Register(cross(cur)) }          // after the delay
+
+type Impl struct{}
+
+func (Impl) Methods() (calls, queries []string) { return []string{"Inc"}, []string{"Get"} }
+
+func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {}
+
+func (Impl) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) string {
+	key := tx.Caller().String()
+	tx.Set("counts", key, tx.View().GetInt64("counts", key)+1)
+	return ""
+}
+
+func (Impl) Query(v upgrade.View, method, args string) string {
+	return strconv.FormatInt(v.GetInt64("counts", args), 10)
+}
+
+func (Impl) Render(v upgrade.View, path string) string { return "# App\n" }
+```
+
+The proxy refuses method names missing from `Methods`, so `Call` here only sees
+`Inc`. See `src/r/upgrade/vault` for a complete example with coins, admin
+methods, a migration and tests.
+
+### String calls or typed entry points
+
+`Call` and `Query` carry a method name and one string argument, which is also
+all MsgCall can pass. The proxy checks the names against a grow-only API, so a
+new version adds methods without any change to the proxy. Prefer them.
+
+Use `Invoke` and `Inspect` when an entry point needs typed arguments, a standard
+token interface, or a callback. The proxy declares an interface that extends
+`upgrade.Impl`, like the AMM's `Pool`, and asserts the implementation to it.
+That interface is part of the proxy and cannot change, so keep it to what must
+be typed, and guard every entry point against reentry as the AMM does.
+
 ## Upgrade lifecycle
 
 1. The proxy creates an empty `upgrade.Proxy` with an owner and delay.
@@ -83,15 +164,22 @@ approved implementation while it runs, as the next section explains.
 
 ## Security model
 
-The proxy owns all persistent authority. Implementations receive a `Tx` and a
-`Custody` only while the proxy's crossing call is live. Gno refuses to persist
-these handles, and their methods reject use outside that frame. State values are
-restricted to plain types so an old implementation cannot retain a writable
-pointer into proxy state.
+As the previous section explains, the proxy owns all persistent authority and
+an implementation holds none between calls. State values are restricted to
+plain types for the same reason: a pointer an implementation allocated would
+stay writable by it.
 
 An approved implementation is still fully trusted while it runs. It can change
 state and move every asset held by the proxy. The delay gives users time to
-audit and exit; it does not sandbox bad code. In particular:
+audit and exit; it does not sandbox bad code.
+
+The reverse limit also holds. An implementation can act outside the proxy only
+through what the proxy hands it: `Tx`, `Custody`, and anything a typed proxy
+builds itself, such as the AMM's `pay` callback. It cannot call another realm as
+the proxy, so a version that needs a new kind of outward call, such as an oracle
+or another protocol, needs a new proxy. Decide those calls before deploying.
+
+In particular:
 
 - Keep implementation values stateless. Store application state through `Tx`
   and hold assets through `Custody`.
