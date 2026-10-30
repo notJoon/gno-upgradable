@@ -22,6 +22,8 @@ var kept *handles
 
 type sticky struct{ v1.Impl }
 
+func (sticky) ID() string { return "gno.land/r/demo/main:sticky-handles" }
+
 func (sticky) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) string {
 	kept = &handles{tx: tx, c: c}
 	return ""

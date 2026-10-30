@@ -21,11 +21,12 @@ const UpgradeDelay = 17280
 // must check Admin(), never Admin0.
 const Admin0 address = "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
 
-// Pool is what an implementation provides beyond upgrade.Impl: the typed
-// entry points Call cannot carry. Changing it means a new proxy, so it holds
-// only what must be typed.
+// Pool combines the optional upgrade capabilities with the typed entry points
+// Call cannot carry. Changing it means a new proxy, so it holds only what must
+// be typed.
 type Pool interface {
-	upgrade.Impl
+	upgrade.Dispatcher
+	upgrade.Renderer
 
 	// Swap sends the output to `to`, then calls pay with the amount owed,
 	// and must check the pool's balance rose by at least that much.
@@ -142,24 +143,29 @@ func Approved() string      { return proxy.Approved() }
 func ApprovedETA() int64    { return proxy.ETA() }
 
 // Methods lists the methods Call and Query answer now.
-func Methods() (calls, queries []string) {
+func Methods() (calls, queries []upgrade.Method) {
 	assertUnlocked()
 	return proxy.Methods()
 }
 
 // API lists every method any implementation has served. After a rollback
 // some may be unavailable; a later implementation must answer them all.
-func API() (calls, queries []string) {
+func API() (calls, queries []upgrade.Method) {
 	assertUnlocked()
 	return proxy.API()
 }
 
 // Missing lists the API methods next lacks, so an implementation's tests
 // can check it before approval.
-func Missing(next upgrade.Impl) (calls, queries []string) {
+func Missing(next upgrade.Dispatcher) (calls, queries []upgrade.Method) {
 	assertUnlocked()
 	return proxy.Missing(next)
 }
+
+func ImplID() string              { return proxy.ImplID() }
+func PendingImplID() string       { return proxy.PendingImplID() }
+func ManifestHash() string        { return proxy.ManifestHash() }
+func PendingManifestHash() string { return proxy.PendingManifestHash() }
 
 func guard() func() {
 	assertUnlocked()

@@ -60,6 +60,15 @@ run = "gno test -v ./src/..."
 env = { GNOHOME = "{{env.GNO_TOOLCHAIN}}/gnohome" }
 run = "gno lint ./src/..."
 
+[tasks.criteria]
+description = "Run machine-checkable acceptance criteria"
+run = '''
+set -e
+mise run lint
+mise run test
+mise run integration
+'''
+
 [tasks.fmt]
 run = "find src -name '*.gno' -exec gofumpt -w -l {} +"
 

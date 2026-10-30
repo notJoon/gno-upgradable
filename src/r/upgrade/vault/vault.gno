@@ -22,6 +22,11 @@ const Admin0 address = "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
 
 var proxy *upgrade.Proxy
 
+type Implementation interface {
+	upgrade.Dispatcher
+	upgrade.Renderer
+}
+
 func init(cur realm) {
 	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay)
 }
@@ -50,12 +55,12 @@ func Frozen() bool { return proxy.Frozen() }
 
 // Prepare is called by the approved implementation realm to start the
 // delay, once its code is deployed.
-func Prepare(cur realm, next upgrade.Impl) {
+func Prepare(cur realm, next Implementation) {
 	proxy.Prepare(0, cur, next)
 }
 
 // Bootstrap installs the first approved implementation without a delay.
-func Bootstrap(cur realm, first upgrade.Impl) {
+func Bootstrap(cur realm, first Implementation) {
 	proxy.Bootstrap(0, cur, first)
 }
 
@@ -81,14 +86,19 @@ func Approved() string { return proxy.Approved() }
 func ApprovedETA() int64 { return proxy.ETA() }
 
 // Methods lists the methods Call and Query answer now.
-func Methods() (calls, queries []string) { return proxy.Methods() }
+func Methods() (calls, queries []upgrade.Method) { return proxy.Methods() }
 
 // API lists every method any implementation has served. After a rollback
 // some may be unavailable; a later implementation must answer them all.
-func API() (calls, queries []string) { return proxy.API() }
+func API() (calls, queries []upgrade.Method) { return proxy.API() }
 
 // Missing lists the API methods next lacks, so an implementation's tests
 // can check it before approval.
-func Missing(next upgrade.Impl) (calls, queries []string) { return proxy.Missing(next) }
+func Missing(next upgrade.Dispatcher) (calls, queries []upgrade.Method) { return proxy.Missing(next) }
+
+func ImplID() string              { return proxy.ImplID() }
+func PendingImplID() string       { return proxy.PendingImplID() }
+func ManifestHash() string        { return proxy.ManifestHash() }
+func PendingManifestHash() string { return proxy.PendingManifestHash() }
 
 func Render(path string) string { return proxy.Render(path) }

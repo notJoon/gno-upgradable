@@ -16,6 +16,8 @@ import (
 
 type next struct{ v1.Impl }
 
+func (next) ID() string { return "gno.land/r/demo/main:callback-next" }
+
 func main(cur realm) {
 	alice := testutils.TestAddress("alice")
 	pool := chain.PackageAddress("gno.land/r/upgrade/amm")

@@ -36,10 +36,13 @@ func Activate(cur realm) {
 
 type Impl struct{}
 
+func (Impl) ID() string { return "gno.land/r/upgrade/amm/v1:impl" }
+
 func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {}
 
-func (Impl) Methods() (calls, queries []string) {
-	return []string{"AddLiquidity"}, []string{"SharesOf"}
+func (Impl) Methods() (calls, queries []upgrade.Method) {
+	return []upgrade.Method{{Name: "AddLiquidity", Schema: "v1:int64,int64->int64"}},
+		[]upgrade.Method{{Name: "SharesOf", Schema: "v1:address->int64"}}
 }
 
 func (Impl) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) string {

@@ -20,7 +20,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [lint, test, integration, integration-gnodev]
+        # criteria owns machine-checkable gates. Manual interface review lives
+        # in .agents/skills/review-upgrade-usability and is never run by CI.
+        task: [criteria, integration-gnodev]
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2

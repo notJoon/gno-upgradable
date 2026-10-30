@@ -16,9 +16,11 @@ import (
 
 type next struct{ v1.Impl }
 
-func (n next) Methods() (calls, queries []string) {
+func (next) ID() string { return "gno.land/r/demo/main:approve-a" }
+
+func (n next) Methods() (calls, queries []upgrade.Method) {
 	calls, queries = n.Impl.Methods()
-	return append(calls, "ApproveA"), queries
+	return append(calls, upgrade.Method{Name: "ApproveA", Schema: "v1:void->void"}), queries
 }
 
 func (n next) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) string {

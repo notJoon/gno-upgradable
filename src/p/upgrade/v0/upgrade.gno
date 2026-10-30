@@ -78,7 +78,8 @@ func New(_ int, rlm realm, owner address, delay int64) *Upgrader {
 // replacing any pending approval. rlm is the holding realm's live cur, and
 // its caller must be the owner.
 //
-// Approving a path that has been the implementation before is a rollback.
+// Approving a path that has been the implementation before is a rollback
+// candidate. Proxy also matches the implementation ID and manifest hash.
 // See IsRollback.
 func (u *Upgrader) Approve(_ int, rlm realm, pkgPath string) {
 	u.assertOwner(0, rlm)
@@ -108,10 +109,8 @@ func (u *Upgrader) approve(pkgPath string) {
 	}
 	// Only characters a package path can hold, which also keeps the path
 	// safe to print in the proxy's Render banner.
-	for _, c := range pkgPath {
-		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || strings.ContainsRune("./_-", c)) {
-			panic(ErrInvalidPath)
-		}
+	if !onlyChars(pkgPath, "./_-") {
+		panic(ErrInvalidPath)
 	}
 	u.approved = pkgPath
 	// With nothing live there is no delay, so the approval needs no Prepare.
@@ -121,7 +120,7 @@ func (u *Upgrader) approve(pkgPath string) {
 		u.eta = runtime.ChainHeight()
 	}
 	u.emit("UpgradeApproved", "pkgPath", pkgPath,
-		"eta", strconv.FormatInt(u.eta, 10), "rollback", strconv.FormatBool(u.IsRollback()))
+		"eta", strconv.FormatInt(u.eta, 10), "rollbackCandidate", strconv.FormatBool(u.IsRollback()))
 }
 
 // Cancel drops the pending approval, if any. Owner only.
@@ -200,9 +199,13 @@ func (u *Upgrader) assertOwner(_ int, rlm realm) {
 // the approved realm's own Prepare, and a second call must not push the ETA
 // back.
 func (u *Upgrader) Prepare(_ int, rlm realm) {
+	u.prepare(0, rlm)
+}
+
+func (u *Upgrader) prepare(_ int, rlm realm, attrs ...string) {
 	u.assertPreparable(0, rlm)
 	u.eta, u.prepared = addDelay(runtime.ChainHeight(), u.delay), true
-	u.emit("UpgradePrepared", "pkgPath", u.approved, "eta", strconv.FormatInt(u.eta, 10))
+	u.emit("UpgradePrepared", append([]string{"pkgPath", u.approved, "eta", strconv.FormatInt(u.eta, 10)}, attrs...)...)
 }
 
 func addDelay(height, delay int64) int64 {
@@ -225,9 +228,13 @@ func (u *Upgrader) assertPreparable(_ int, rlm realm) {
 // holding realm's live cur, and its caller must be the approved realm,
 // once the delay has passed.
 func (u *Upgrader) Accept(_ int, rlm realm) {
+	u.accept(0, rlm, u.IsRollback())
+}
+
+func (u *Upgrader) accept(_ int, rlm realm, rollback bool, attrs ...string) {
 	caller := u.assertAcceptable(0, rlm)
-	rollback := u.IsRollback()
-	u.emit("Upgraded", "from", u.pkgPath, "to", caller, "rollback", strconv.FormatBool(rollback))
+	eventAttrs := []string{"from", u.pkgPath, "to", caller, "rollback", strconv.FormatBool(rollback)}
+	u.emit("Upgraded", append(eventAttrs, attrs...)...)
 	if !rollback {
 		u.served = append(u.served, caller)
 	}
@@ -313,3 +320,13 @@ func (u *Upgrader) IsRollback() bool {
 // ETA returns the first block height at which the pending approval can be
 // accepted, or 0 if there is none or it is not prepared yet.
 func (u *Upgrader) ETA() int64 { return u.eta }
+
+// onlyChars reports whether s holds only lowercase letters, digits and extra.
+func onlyChars(s, extra string) bool {
+	for _, c := range s {
+		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || strings.ContainsRune(extra, c)) {
+			return false
+		}
+	}
+	return true
+}

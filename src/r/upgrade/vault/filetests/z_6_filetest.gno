@@ -9,6 +9,7 @@ import (
 	"chain/runtime"
 	"testing"
 
+	"gno.land/p/upgrade/v0"
 	"gno.land/r/upgrade/vault"
 	v1 "gno.land/r/upgrade/vault/v1"
 	v2 "gno.land/r/upgrade/vault/v2"
@@ -17,8 +18,11 @@ import (
 // noWithdraw drops Withdraw.
 type noWithdraw struct{ v1.Impl }
 
-func (noWithdraw) Methods() (calls, queries []string) {
-	return []string{"Deposit"}, []string{"BalanceOf"}
+func (noWithdraw) ID() string { return "gno.land/r/demo/main:no-withdraw" }
+
+func (noWithdraw) Methods() (calls, queries []upgrade.Method) {
+	return []upgrade.Method{{Name: "Deposit", Schema: "v1:void->void"}},
+		[]upgrade.Method{{Name: "BalanceOf", Schema: "v1:address->int64"}}
 }
 
 func main(cur realm) {
@@ -63,4 +67,4 @@ func main(cur realm) {
 // upgrade: approval is already prepared
 // upgrade: approval is still in its delay
 // impl: gno.land/r/upgrade/vault/v2
-// upgrade: next implementation lacks API methods: Call Withdraw, Call CollectFees; to retire one, keep it and make it panic
+// upgrade: next implementation lacks API methods: Call Withdraw [v1:int64->void], Call CollectFees [v1:void->void]; to retire one, keep it and make it panic
