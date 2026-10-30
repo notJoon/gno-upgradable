@@ -3,8 +3,8 @@ go = "1.25"
 gofumpt = "0.12.0"
 
 [env]
-# gno release to build the toolchain from. Match it to the target chain (chain/mainnet = v1.2.0).
-GNO_REF = "v1.6.0"
+# gno release to build the toolchain from. Match it to the target chain.
+GNO_REF = "v1.5.1"
 GNO_TOOLCHAIN = "{{env.HOME}}/.cache/gno-toolchains/{{env.GNO_REF}}"
 # the toolchain lives outside the repo so `gno test ./...` does not pick up its sources
 GNOROOT = "{{env.GNO_TOOLCHAIN}}/src"

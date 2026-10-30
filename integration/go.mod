@@ -3,7 +3,7 @@ module github.com/notjoon/gno-upgradable/integration
 go 1.25.9
 
 require (
-	github.com/gnolang/gno v1.6.0
+	github.com/gnolang/gno v1.5.1
 	github.com/rogpeppe/go-internal v1.16.0
 )
 
