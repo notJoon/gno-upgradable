@@ -1,0 +1,3 @@
+# Keep Persistent Authority in the Proxy
+
+The upgrade pattern follows the object capability model. The proxy retains persistent state, assets, and upgrade authority. Implementations receive `Tx` and `Custody` capabilities that are valid only during the current call. Activation uses the exact implementation value saved by `Prepare`. Bootstrap and ownership changes require explicit owner actions so authority cannot move implicitly. We do not expose raw realm, banker, teller, or token approval capabilities because they could remain usable after the intended call. Future capabilities must grant only the authority they need and expire with the call.
