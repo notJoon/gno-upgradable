@@ -1,0 +1,20 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^mise\\.toml$/"],
+      "matchStrings": ["GNO_REF = \"(?<currentValue>v\\d+\\.\\d+\\.\\d+)\""],
+      "depNameTemplate": "gnolang/gno",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": ["gnolang/gno", "github.com/gnolang/gno"],
+      "groupName": "Gno mainnet release"
+    }
+  ]
+}
