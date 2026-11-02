@@ -37,7 +37,7 @@ type Implementation interface {
 }
 
 func init(cur realm) {
-	proxy = upgrade.NewProxy(0, cur, admin, 17280) // delay in blocks
+	proxy = upgrade.NewProxy(0, cur, admin, 17280, 17280) // delay and install window, in blocks
 }
 
 func Approve(cur realm, pkgPath string)          { proxy.Approve(0, cur, pkgPath) }
@@ -145,9 +145,11 @@ it. Calls route through that copy, and only the saved value can be installed. Se
 4. The approved realm calls `Upgrade`. This checks the grow-only method API,
    saves the value, and starts the full delay only after the code exists
    on-chain.
-5. At or after `ETA`, the same realm calls `Upgrade` again with the same value.
-   The proxy installs the saved value and calls `Migrate` in the same
-   transaction.
+5. At or after `ETA`, and before the install window closes, the same realm
+   calls `Upgrade` again with the same value. The proxy installs the saved
+   value and calls `Migrate` in the same transaction. Past the window the
+   upgrade cannot land, and the owner must approve again, which restarts the
+   delay.
 
 ![Where the vault's data lives in three steps: v1 writes rows into the proxy's Store, an upgrade switches the implementation without moving rows, and v2 reads v1's rows and adds a table](docs/storage.svg)
 
@@ -282,7 +284,8 @@ chain and checks that state survives the upgrade.
 
 Before deploying a proxy:
 
-- choose an explicit admin user or governance realm and an escape delay;
+- choose an explicit admin user or governance realm, an escape delay
+  and an install window;
 - make every admin forwarder call the checks on `Proxy` rather than duplicating
   authorization in the realm;
 - test first install, delayed upgrade, cancellation, ownership transfer,

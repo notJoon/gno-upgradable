@@ -43,12 +43,12 @@ func main(cur realm) {
 // # Vault
 //
 // > [!WARNING]
-// > Upgrade pending: `gno.land/r/upgrade/vault/v2` can take over at block 17403.
+// > Upgrade pending: `gno.land/r/upgrade/vault/v2` can take over from block 17403 until block 34683.
 //
 // # Vault
 //
 // > [!WARNING]
-// > Rollback pending: `gno.land/r/upgrade/vault/v1` can take over at block 34683.
+// > Rollback pending: `gno.land/r/upgrade/vault/v1` can take over from block 34683 until block 51963.
 //
 // # Vault
 //

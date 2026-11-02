@@ -15,6 +15,10 @@ import (
 // Upgrade call and the call that installs it, about a day at 5s blocks.
 const UpgradeDelay = 17280
 
+// UpgradeWindow is how many blocks after the delay the approved realm has to
+// install. Past it, the admin must approve again and the delay restarts.
+const UpgradeWindow = 17280
+
 // Admin0 is the first admin, who approves upgrades. It is written in the
 // source, not taken from the deployer, so anyone reviewing the realm can see
 // who controls it. TransferAdmin moves the role later, so implementations
@@ -48,7 +52,7 @@ var (
 )
 
 func init(cur realm) {
-	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay)
+	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay, UpgradeWindow)
 }
 
 // Upgrade is called by the approved implementation realm: once to start the

@@ -10,7 +10,7 @@ import (
 const owner address = "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
 
 func TestApprove(cur realm, t *testing.T) {
-	u := newUpgrader(0, cur, owner, 0)
+	p := NewProxy(0, cur, owner, 0, 1)
 	for _, path := range []string{
 		"gno.land/p/nt/avl/v0",
 		"gno.land/p/x/r/y",
@@ -22,31 +22,49 @@ func TestApprove(cur realm, t *testing.T) {
 		"",
 	} {
 		uassert.PanicsWithMessage(t, cur, ErrInvalidPath, func() {
-			u.approve(path)
+			p.approve(path)
 		})
 	}
 
-	u.approve("gno.land/r/x/v1")
-	u.approve("gno.land/r/x/v2")
-	uassert.Equal(t, "gno.land/r/x/v2", u.Approved())
-	uassert.Equal(t, "", u.PkgPath())
+	p.approve("gno.land/r/x/v1")
+	p.approve("gno.land/r/x/v2")
+	uassert.Equal(t, "gno.land/r/x/v2", p.Approved())
+	uassert.Equal(t, "", p.ImplPath())
 }
 
 func TestDelay(cur realm, t *testing.T) {
-	u := newUpgrader(0, cur, owner, 10)
+	p := NewProxy(0, cur, owner, 10, 5)
 	h := runtime.ChainHeight()
-	u.approve("gno.land/r/x/v1")
-	uassert.Equal(t, h, u.ETA()) // nothing live yet, so no delay
+	p.approve("gno.land/r/x/v1")
+	uassert.Equal(t, h, p.ETA()) // nothing live yet, so no delay
 
 	// With an implementation live, the delay waits for the first Upgrade call.
-	u.pkgPath = "gno.land/r/x/v1"
-	u.approve("gno.land/r/x/v2")
-	uassert.Equal(t, int64(0), u.ETA())
+	p.implPath, p.impl = "gno.land/r/x/v1", lifecycleOnly{}
+	p.approve("gno.land/r/x/v2")
+	uassert.Equal(t, int64(0), p.ETA())
+
+	// A saved value installs from the ETA until the window closes.
+	p.pending, p.eta = lifecycleOnly{}, h+1
+	uassert.PanicsWithMessage(t, cur, ErrTooEarly, func() { p.assertInstallable() })
+	p.eta = h
+	p.assertInstallable()
+	p.eta = h - 4
+	p.assertInstallable()
+	p.eta = h - 5
+	uassert.PanicsWithMessage(t, cur, ErrExpired, func() { p.assertInstallable() })
+
+	// Approving again drops the saved value and its ETA.
+	p.approve("gno.land/r/x/v2")
+	uassert.True(t, p.pending == nil)
+	uassert.Equal(t, int64(0), p.ETA())
 
 	const maxInt64 = 1<<63 - 1
 	uassert.Equal(t, int64(maxInt64), addDelay(maxInt64-10, 10))
 	uassert.PanicsWithMessage(t, cur, ErrDelayOverflow, func() {
 		addDelay(maxInt64, 1)
+	})
+	uassert.PanicsWithMessage(t, cur, ErrDelayOverflow, func() {
+		NewProxy(0, cur, owner, 1, maxInt64)
 	})
 }
 
@@ -116,7 +134,7 @@ func (oneMethod) Methods() (calls, queries []Method) {
 }
 
 func TestInspectImpl(cur realm, t *testing.T) {
-	p := NewProxy(0, cur, owner, 0)
+	p := NewProxy(0, cur, owner, 0, 1)
 	uassert.PanicsWithMessage(t, cur, "upgrade: duplicate Call method Call", func() {
 		p.InspectImpl(dupMethods{})
 	})
@@ -137,7 +155,7 @@ type lifecycleOnly struct{}
 func (lifecycleOnly) Migrate(tx *Tx, c *Custody, from ImplRef) {}
 
 func TestLifecycleOnlyImplementation(cur realm, t *testing.T) {
-	p := NewProxy(0, cur, owner, 0)
+	p := NewProxy(0, cur, owner, 0, 1)
 	p.impl = lifecycleOnly{}
 	p.Invoke(0, cur, func(impl Impl, tx *Tx, _ *Custody) {
 		uassert.True(t, impl == Impl(lifecycleOnly{}))
@@ -152,7 +170,7 @@ func TestLifecycleOnlyImplementation(cur realm, t *testing.T) {
 }
 
 func TestLifecycleOnlyQueryReportsUnknownMethod(cur realm, t *testing.T) {
-	p := NewProxy(0, cur, owner, 0)
+	p := NewProxy(0, cur, owner, 0, 1)
 	p.impl = lifecycleOnly{}
 	uassert.PanicsWithMessage(t, cur, "upgrade: unknown method Nope", func() {
 		p.Query("Nope", "")

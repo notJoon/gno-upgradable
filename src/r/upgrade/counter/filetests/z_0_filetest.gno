@@ -44,7 +44,7 @@ func main(cur realm) {
 // Output:
 // gno.land/r/upgrade/counter/v1 2 1
 // > [!WARNING]
-// > Upgrade pending: `gno.land/r/upgrade/counter/v2` can take over at block 17403.
+// > Upgrade pending: `gno.land/r/upgrade/counter/v2` can take over from block 17403 until block 34683.
 //
 // gno.land/r/upgrade/counter/v2 3 1
 // # Counter
