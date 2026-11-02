@@ -12,7 +12,7 @@ and four examples:
   lists or string arguments, and a v2 that adds a Render and a migration.
 - `vault` demonstrates string-dispatched calls, migrations, fees, and rollback.
 - `amm` demonstrates typed entry points, token custody, callbacks, and
-  reentrancy protection.
+  reentrancy protection, and keeps its pool state in one protobuf record.
 - `profile` stores one protobuf record per address, and its v2 adds a field
   that survives a rollback to v1.
 

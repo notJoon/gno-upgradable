@@ -113,6 +113,11 @@ to read, and dearer still to update, because an update decodes and re-encodes th
 record. Keep a value that changes on most calls, such as a balance, in its
 own row next to the record.
 
+The AMM shows the split. Its reserves and share supply always change
+together, so they are one `Pool` record, and a swap reads and writes one row
+instead of two. Each holder's shares change alone, so they stay one row per
+address. The counter and vault keep one value per key and use plain rows.
+
 ## Safety findings
 
 - **View bytes cannot be modified.** An implementation that reads a `[]byte`
