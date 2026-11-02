@@ -51,6 +51,8 @@ func TestDelay(cur realm, t *testing.T) {
 	p.eta = h - 4
 	p.assertInstallable()
 	p.eta = h - 5
+	p.assertInstallable()
+	p.eta = h - 6
 	uassert.PanicsWithMessage(t, cur, ErrExpired, func() { p.assertInstallable() })
 
 	// Approving again drops the saved value and its ETA.

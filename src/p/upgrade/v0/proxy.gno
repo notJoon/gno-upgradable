@@ -258,7 +258,7 @@ func (p *Proxy) banner() string {
 			strconv.FormatInt(p.delay, 10) + " blocks starts when it calls Upgrade.\n\n"
 	}
 	end := p.eta + p.window
-	if runtime.ChainHeight() >= end {
+	if runtime.ChainHeight() > end {
 		return "> [!NOTE]\n> " + kind + " to `" + p.approved + "` expired at block " +
 			strconv.FormatInt(end, 10) + ". It cannot land unless the owner approves it again.\n\n"
 	}

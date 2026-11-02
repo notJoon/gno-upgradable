@@ -250,7 +250,7 @@ func (p *Proxy) assertInstallable() {
 		panic(ErrTooEarly)
 	}
 	// prepare checked that eta+window does not overflow.
-	if h >= p.eta+p.window {
+	if h > p.eta+p.window {
 		panic(ErrExpired)
 	}
 }

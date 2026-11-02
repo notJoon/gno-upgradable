@@ -23,24 +23,36 @@ func main(cur realm) {
 	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v2")
 	v2.Upgrade(cross(cur))
 
-	// The last block of the window still installs, so skip one past it.
+	// The last block of the window still installs.
 	testing.SkipHeights(vault.UpgradeDelay + vault.UpgradeWindow)
-	println(revive(func() { v2.Upgrade(cross(cur)) }))
+	println(strings.SplitN(vault.Render(""), "\n\n", 2)[0])
+	v2.Upgrade(cross(cur))
+	println("boundary impl:", vault.ImplPath())
+
+	// The following block is expired.
+	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
+	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
+	v1.Upgrade(cross(cur))
+	testing.SkipHeights(vault.UpgradeDelay + vault.UpgradeWindow + 1)
+	println(revive(func() { v1.Upgrade(cross(cur)) }))
 	println(strings.SplitN(vault.Render(""), "\n\n", 2)[0])
 
 	// Approving again restarts the delay from the next Upgrade call.
 	testing.SetRealm(testing.NewUserRealm(vault.Admin0))
-	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v2")
-	v2.Upgrade(cross(cur))
-	println(revive(func() { v2.Upgrade(cross(cur)) }))
-	testing.SkipHeights(vault.UpgradeDelay + vault.UpgradeWindow - 1)
-	v2.Upgrade(cross(cur))
+	vault.Approve(cross(cur), "gno.land/r/upgrade/vault/v1")
+	v1.Upgrade(cross(cur))
+	println(revive(func() { v1.Upgrade(cross(cur)) }))
+	testing.SkipHeights(vault.UpgradeDelay + vault.UpgradeWindow)
+	v1.Upgrade(cross(cur))
 	println("impl:", vault.ImplPath())
 }
 
 // Output:
+// > [!WARNING]
+// > Upgrade pending: `gno.land/r/upgrade/vault/v2` can take over from block 17403 until block 34683.
+// boundary impl: gno.land/r/upgrade/vault/v2
 // upgrade: approval expired, the owner must approve again
 // > [!NOTE]
-// > Upgrade to `gno.land/r/upgrade/vault/v2` expired at block 34683. It cannot land unless the owner approves it again.
+// > Rollback to `gno.land/r/upgrade/vault/v1` expired at block 69243. It cannot land unless the owner approves it again.
 // upgrade: approval is still in its delay
-// impl: gno.land/r/upgrade/vault/v2
+// impl: gno.land/r/upgrade/vault/v1
