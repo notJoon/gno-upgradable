@@ -56,7 +56,7 @@ func (v2) Add(tx *upgrade.Tx) {
 }
 
 func init(cur realm) {
-	proxy = upgrade.NewProxy(0, cur, admin, 1)
+	proxy = upgrade.NewProxy(0, cur, admin, 1, 10)
 }
 
 func approve(cur realm, path string)    { proxy.Approve(0, cur, path) }
@@ -122,7 +122,7 @@ func main(cur realm) {
 // v2 from v1
 // 3
 // > [!WARNING]
-// > Rollback pending: `gno.land/r/demo/main` can take over at block 125.
+// > Rollback pending: `gno.land/r/demo/main` can take over from block 125 until block 135.
 //
 // v1 from v2
 // 4

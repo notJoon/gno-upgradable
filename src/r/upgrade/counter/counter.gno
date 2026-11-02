@@ -11,6 +11,10 @@ import (
 // Upgrade call and the call that installs it, about a day at 5s blocks.
 const UpgradeDelay = 17280
 
+// UpgradeWindow is how many blocks after the delay the approved realm has to
+// install. Past it, the admin must approve again and the delay restarts.
+const UpgradeWindow = 17280
+
 const Admin0 address = "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
 
 var proxy *upgrade.Proxy
@@ -24,7 +28,7 @@ type Counter interface {
 }
 
 func init(cur realm) {
-	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay)
+	proxy = upgrade.NewProxy(0, cur, Admin0, UpgradeDelay, UpgradeWindow)
 }
 
 // Inc adds to the caller's count.
