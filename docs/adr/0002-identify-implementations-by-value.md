@@ -8,7 +8,7 @@ The proxy keeps persistent state, assets, and upgrade authority, as ADR 0001 dec
 
 The proxy names an implementation by the realm path that installed it and the value itself, compared with `==`. The comparison checks the dynamic type, including the package that declares it, and the value. This pair replaces the self-reported implementation ID and the SHA-256 manifest hash, which an implementation chose for itself and which could not authenticate anything.
 
-Both halves come from the chain in Gno v1.5.1:
+Both halves come from the chain in Gno v1.7.0:
 
 - The path is the caller of `Upgrade`, which the chain authenticates.
 - The value's type decides the code that runs. A public package path can be deployed once, so that code never changes. A private realm can be redeployed by its creator, but a value whose type a private realm declares cannot be stored in another realm, so the proxy only ever holds values of public types.
