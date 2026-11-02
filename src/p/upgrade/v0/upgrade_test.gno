@@ -116,6 +116,40 @@ func TestStore(cur realm, t *testing.T) {
 	uassert.Equal(t, "x", string(v.Get("t", "b").([]byte)))
 }
 
+func TestTypedGetters(cur realm, t *testing.T) {
+	s := NewStore(0, cur)
+	v := s.View()
+	tx := s.Begin(0, cur)
+	tx.Set("t", "s", "x")
+	tx.Set("t", "b", true)
+	tx.Set("t", "i", int64(-1))
+	tx.Set("t", "u", uint64(1))
+	tx.Set("t", "a", owner)
+	tx.Set("t", "y", []byte("x"))
+
+	uassert.Equal(t, "x", v.GetString("t", "s"))
+	uassert.True(t, v.GetBool("t", "b"))
+	uassert.Equal(t, int64(-1), v.GetInt64("t", "i"))
+	uassert.Equal(t, uint64(1), v.GetUint64("t", "u"))
+	uassert.Equal(t, owner, v.GetAddress("t", "a"))
+	uassert.Equal(t, "x", string(v.GetBytes("t", "y")))
+
+	// A missing row reads as zero.
+	uassert.Equal(t, "", v.GetString("t", "none"))
+	uassert.Equal(t, int64(0), v.GetInt64("t", "none"))
+	uassert.Equal(t, 0, len(v.GetBytes("t", "none")))
+
+	// A row of another type panics instead of reading as zero.
+	uassert.PanicsWithMessage(t, cur, "upgrade: row t/i is not uint64", func() {
+		v.GetUint64("t", "i")
+	})
+
+	// GetBytes returns a copy the caller may change.
+	b := v.GetBytes("t", "y")
+	b[0] = 'z'
+	uassert.Equal(t, "x", string(v.GetBytes("t", "y")))
+}
+
 type dupMethods struct{}
 
 func (dupMethods) Migrate(tx *Tx, c *Custody, from ImplRef) {}
