@@ -15,7 +15,7 @@ import (
 
 type next struct{ v1.Impl }
 
-func (next) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {
+func (next) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from upgrade.ImplRef) {
 	c.ApproveForCall(testtoken.A, chain.PackageAddress("gno.land/r/demo/main"), 100)
 }
 

@@ -22,8 +22,11 @@ type box struct{ N int64 }
 // sticky tries to keep a handle on a row it wrote.
 type sticky struct{ v1.Impl }
 
-func (sticky) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {
-	println("migrate from:", from)
+func (sticky) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from upgrade.ImplRef) {
+	if from.Path() != "gno.land/r/upgrade/vault/v1" {
+		panic("sticky: unexpected migration source")
+	}
+	println("migrate from:", from.Path())
 }
 
 func (sticky) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) string {

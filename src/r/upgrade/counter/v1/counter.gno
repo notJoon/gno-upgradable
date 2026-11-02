@@ -16,7 +16,7 @@ type Impl struct{}
 
 var _ proxy.Counter = Impl{}
 
-func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {}
+func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from upgrade.ImplRef) {}
 
 func (Impl) Inc(tx *upgrade.Tx) {
 	key := tx.Caller().String()

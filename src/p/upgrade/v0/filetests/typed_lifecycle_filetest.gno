@@ -11,7 +11,10 @@ import (
 	"gno.land/p/upgrade/v0"
 )
 
-const admin address = "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
+const (
+	admin address = "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
+	path          = "gno.land/r/demo/main"
+)
 
 var proxy *upgrade.Proxy
 
@@ -23,13 +26,30 @@ type Counter interface {
 
 type v1 struct{}
 
-func (v1) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {}
+func (v1) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from upgrade.ImplRef) {
+	if from.Empty() {
+		println("bootstrap from empty")
+		return
+	}
+	if !from.Is(path, v2{}) {
+		panic("v1: unexpected migration source")
+	}
+	println("v1 from v2")
+}
+
 func (v1) Add(tx *upgrade.Tx) {
 	tx.Set("counter", "value", tx.View().GetInt64("counter", "value")+1)
 }
 func (v1) Value(v upgrade.View) int64 { return v.GetInt64("counter", "value") }
 
 type v2 struct{ v1 }
+
+func (v2) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from upgrade.ImplRef) {
+	if !from.Is(path, v1{}) {
+		panic("v2: unexpected migration source")
+	}
+	println("v2 from v1")
+}
 
 func (v2) Add(tx *upgrade.Tx) {
 	tx.Set("counter", "value", tx.View().GetInt64("counter", "value")+2)
@@ -56,7 +76,6 @@ func value() (out int64) {
 }
 
 func main(cur realm) {
-	const path = "gno.land/r/demo/main"
 	testing.SetRealm(testing.NewUserRealm(admin))
 	approve(cross(cur), path)
 	testing.SetRealm(testing.NewCodeRealm(path))
@@ -65,6 +84,8 @@ func main(cur realm) {
 	testing.SetRealm(testing.NewUserRealm(admin))
 	add(cross(cur))
 	println(value())
+	candidate := proxy.InspectImpl(v2{})
+	println("typed candidate:", len(candidate.Calls), len(candidate.Queries), len(candidate.MissingCalls), len(candidate.MissingQueries))
 
 	approve(cross(cur), path)
 	print(proxy.Render(""))
@@ -91,13 +112,17 @@ func main(cur realm) {
 }
 
 // Output:
+// bootstrap from empty
 // 1
+// typed candidate: 0 0 0 0
 // > [!WARNING]
 // > Upgrade approved: `gno.land/r/demo/main`. Its delay of 1 blocks starts when it calls Upgrade.
 //
 // upgrade: next is not the prepared implementation
+// v2 from v1
 // 3
 // > [!WARNING]
 // > Rollback pending: `gno.land/r/demo/main` can take over at block 125.
 //
+// v1 from v2
 // 4

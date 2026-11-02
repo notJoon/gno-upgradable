@@ -29,7 +29,7 @@ type Impl struct{}
 
 var _ proxy.Pool = Impl{}
 
-func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from string) {}
+func (Impl) Migrate(tx *upgrade.Tx, c *upgrade.Custody, from upgrade.ImplRef) {}
 
 func (Impl) Methods() (calls, queries []upgrade.Method) {
 	return []upgrade.Method{{Name: "AddLiquidity", Schema: "v1:int64,int64->int64"}},

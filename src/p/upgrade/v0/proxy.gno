@@ -19,7 +19,32 @@ const (
 // struct. A value holding a slice, map or func is refused, and a pointer
 // compares by address, so a fresh pointer on each call never matches.
 type Impl interface {
-	Migrate(tx *Tx, c *Custody, from string)
+	Migrate(tx *Tx, c *Custody, from ImplRef)
+}
+
+// ImplRef identifies an implementation by the realm that installed it and the
+// value it installed. Migrate receives the zero value when the proxy is first
+// bootstrapped and the previous implementation on every later transition.
+//
+// Use Empty to recognize bootstrap, Path to branch by realm, and Is when two
+// values from the same realm need different migrations. A different realm
+// cannot construct a realm-declared value; if it needs to call Is for one, the
+// declaring realm must export a function that returns the value.
+type ImplRef struct {
+	path string
+	impl Impl
+}
+
+func (r ImplRef) Empty() bool  { return r.impl == nil }
+func (r ImplRef) Path() string { return r.path }
+
+// Is reports whether r names the given realm and implementation value.
+func (r ImplRef) Is(path string, impl Impl) bool {
+	if impl == nil || r.path != path {
+		return false
+	}
+	assertComparable(impl)
+	return r.impl == impl
 }
 
 // Method identifies one string-dispatched method and the schema its callers
@@ -80,6 +105,13 @@ type implMeta struct {
 	calls, queries []Method
 }
 
+// Candidate is the declared and missing string API of an implementation.
+// Empty Calls and Queries describe a typed-only implementation.
+type Candidate struct {
+	Calls, Queries               []Method
+	MissingCalls, MissingQueries []Method
+}
+
 // Proxy is the state of an upgradable realm: who may become its
 // implementation, its Store, and the live implementation. The realm creates
 // it from init, keeps it in an unexported variable, and forwards its
@@ -102,7 +134,7 @@ type implMeta struct {
 //
 // Rolling back changes code, not state:
 //   - The old implementation's Migrate runs with from set to the newer
-//     path, and must accept it. A Migrate that allows only specific
+//     implementation, and must accept it. A Migrate that allows only specific
 //     predecessors blocks the rollback.
 //   - Tables the newer version added stay in the Store. The old version
 //     ignores them, and rolling forward again finds them intact.
@@ -121,15 +153,7 @@ type Proxy struct {
 	calls, queries []Method
 
 	activeMeta, pendingMeta implMeta
-	served                  []servedImpl
-}
-
-// servedImpl is a realm path and the value it installed. The chain
-// authenticates the path as the caller, and the value's type decides the code
-// that runs, so together they name an implementation.
-type servedImpl struct {
-	path string
-	impl Impl
+	served                  []ImplRef
 }
 
 // NewProxy returns an empty proxy held by the realm whose live cur is rlm.
@@ -158,21 +182,21 @@ func (p *Proxy) Upgrade(_ int, rlm realm, next Impl) {
 	p.u.assertAcceptable(0, rlm)
 	meta := p.pendingMeta
 	if p.pending == nil {
-		meta = inspectImpl(next)
+		meta = inspectMeta(next)
 		p.assertAPI(meta, false)
 	} else if next != p.pending {
 		panic("upgrade: next is not the prepared implementation")
 	}
 	path := p.u.Approved()
 	rollback := p.isRollback(path, next)
-	from := p.u.PkgPath()
+	from := ImplRef{path: p.u.PkgPath(), impl: p.impl}
 	p.u.accept(0, rlm, rollback)
 	p.impl, p.activeMeta = next, meta
 	p.clearPending()
 	p.calls = union(p.calls, meta.calls)
 	p.queries = union(p.queries, meta.queries)
 	if !rollback {
-		p.served = append(p.served, servedImpl{path: path, impl: next})
+		p.served = append(p.served, ImplRef{path: path, impl: next})
 	}
 	c := NewCustody(0, rlm)
 	next.Migrate(p.store.Begin(0, rlm), c, from)
@@ -181,7 +205,7 @@ func (p *Proxy) Upgrade(_ int, rlm realm, next Impl) {
 
 func (p *Proxy) prepare(_ int, rlm realm, next Impl) {
 	p.u.assertPreparable(0, rlm)
-	meta := inspectImpl(next)
+	meta := inspectMeta(next)
 	rollback := p.isRollback(p.u.Approved(), next)
 	p.assertAPI(meta, rollback)
 	p.u.prepare(0, rlm, "rollback", strconv.FormatBool(rollback))
@@ -194,7 +218,7 @@ func (p *Proxy) assertAPI(meta implMeta, rollback bool) {
 	if rollback {
 		return
 	}
-	calls, queries := minus(p.calls, meta.calls), minus(p.queries, meta.queries)
+	calls, queries := p.missing(meta)
 	if len(calls)+len(queries) > 0 {
 		panic("upgrade: next implementation lacks API methods: " +
 			describe(calls, queries) + "; to retire one, keep it and make it panic")
@@ -290,14 +314,24 @@ func (p *Proxy) Methods() (calls, queries []Method) {
 // API returns every method descriptor any implementation has served.
 func (p *Proxy) API() (calls, queries []Method) { return p.calls, p.queries }
 
-// Missing returns the API methods next does not answer, which Upgrade
-// refuses unless it is a rollback. It changes nothing, so an
-// implementation's tests can call it before the implementation is
-// approved, instead of finding out once the delay has passed.
-func (p *Proxy) Missing(next Dispatcher) (calls, queries []Method) {
-	nextCalls, nextQueries := next.Methods()
-	validateMethods(nextCalls, nextQueries)
-	return minus(p.calls, nextCalls), minus(p.queries, nextQueries)
+// InspectImpl checks next exactly as Upgrade does and returns its declared
+// string API and the methods it lacks from the proxy's API. It changes no
+// proxy state. The candidate's realm path is authenticated only by Upgrade,
+// so inspection cannot determine whether it is a rollback.
+func (p *Proxy) InspectImpl(next Impl) Candidate {
+	meta := inspectMeta(next)
+	calls, queries := p.missing(meta)
+	return Candidate{
+		Calls:          meta.calls,
+		Queries:        meta.queries,
+		MissingCalls:   calls,
+		MissingQueries: queries,
+	}
+}
+
+// missing returns the API methods meta does not answer.
+func (p *Proxy) missing(meta implMeta) (calls, queries []Method) {
+	return minus(p.calls, meta.calls), minus(p.queries, meta.queries)
 }
 
 // Approve, Cancel, Freeze and TransferOwnership take the proxy realm's
@@ -353,11 +387,10 @@ func (p *Proxy) clearPending() {
 
 // isRollback reports whether the realm at path has installed next before.
 // Matching the value alone is not enough: another realm can declare a zero
-// value of an exported implementation type. inspectImpl has checked every
-// value here is comparable.
+// value of an exported implementation type.
 func (p *Proxy) isRollback(path string, next Impl) bool {
 	for _, s := range p.served {
-		if s.path == path && s.impl == next {
+		if s.Is(path, next) {
 			return true
 		}
 	}
@@ -435,8 +468,8 @@ func containsName(list []Method, name string) bool {
 	return false
 }
 
-// inspectImpl checks impl and copies its method lists.
-func inspectImpl(impl Impl) implMeta {
+// inspectMeta checks impl and copies its method lists.
+func inspectMeta(impl Impl) implMeta {
 	if impl == nil {
 		panic("upgrade: nil implementation")
 	}
