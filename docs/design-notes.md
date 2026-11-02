@@ -137,6 +137,10 @@ Side findings:
   successful call returns. A panic aborts the transaction.
 - **Schemas change by addition.** Changing a row format in place leaves a
   rolled back implementation unable to read state.
+- **Records are protobuf messages.** An edit keeps the fields it does not
+  write, so a rolled back implementation keeps the fields a newer one added.
+  See [ADR 0003](adr/0003-encode-records-as-protobuf.md) and
+  [record-format.md](record-format.md).
 - **Approval is where code gets audited.** An approved implementation is fully
   trusted while it runs. The delay gives users time to review and exit. It is
   not a sandbox.

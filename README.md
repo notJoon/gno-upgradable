@@ -4,14 +4,17 @@ An upgradable realm pattern for Gno. The proxy realm keeps the permanent
 address, state, coins, and GRC20 tokens. An implementation realm supplies the
 behavior and can be replaced after an on-chain delay.
 
-The repository contains the reusable `gno.land/p/upgrade/v0` package and three
-examples:
+The repository contains the reusable `gno.land/p/upgrade/v0` package, a
+protobuf encoding package `gno.land/p/notjoon/encoding/protobuf/v0` for records,
+and four examples:
 
 - `counter` is the smallest one: typed entry points only, with no method
   lists or string arguments, and a v2 that adds a Render and a migration.
 - `vault` demonstrates string-dispatched calls, migrations, fees, and rollback.
 - `amm` demonstrates typed entry points, token custody, callbacks, and
   reentrancy protection.
+- `profile` stores one protobuf record per address, and its v2 adds a field
+  that survives a rollback to v1.
 
 The examples exist to test the pattern. The AMM is not production-ready: its
 liquidity and arithmetic rules are deliberately simplified.
@@ -172,6 +175,31 @@ realm installed before. It skips the grow-only check, so methods added later
 report as unavailable until a version that has them returns. Ownership transfer
 completes only after the nominated address calls `AcceptOwnership` through the
 proxy's corresponding forwarding function.
+
+## Records
+
+`Store` holds plain values: `string`, `bool`, `int64`, `uint64`, `address` and
+`[]byte`, with a typed `View` getter for each. A value with several fields is a
+record: a protobuf message stored as `[]byte` and edited with
+`gno.land/p/notjoon/encoding/protobuf/v0`.
+
+```go
+e := pb.Read(tx.View().GetBytes(Profiles, key)).Edit()
+e.Uint64(1, known) // field 1: the highest field number this version knows
+e.String(2, name)
+tx.Set(Profiles, key, e.Encode())
+```
+
+`Edit` keeps every field it does not write, so a rolled back implementation
+can rewrite a record without dropping the fields a newer one added. Field 1
+lets the newer version notice that rewrite. Field numbers never change
+meaning, and a collection is a table with one row per member rather than a
+list inside a record.
+
+A record costs less to create and store than one row per field, but every
+update decodes and re-encodes it, so keep values that change on most calls in
+their own rows. See [docs/record-format.md](docs/record-format.md) and
+[ADR 0003](docs/adr/0003-encode-records-as-protobuf.md).
 
 ## Why object capabilities
 
