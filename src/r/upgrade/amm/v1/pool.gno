@@ -11,14 +11,31 @@ import (
 	"strings"
 
 	"gno.land/p/nt/grc20/v0"
+	pb "gno.land/p/notjoon/encoding/protobuf/v0"
 	"gno.land/p/upgrade/v0"
 	proxy "gno.land/r/upgrade/amm"
 	"gno.land/r/upgrade/testtoken"
 )
 
 const (
-	State  = "pool"   // "r0", "r1", "total" -> int64
+	State  = "pool"   // "pool" -> the Pool record below
 	Shares = "shares" // address -> int64
+)
+
+// The pool's reserves and share supply change together, so they are one
+// record at State/"pool":
+//
+//	message Pool {
+//	  uint64 writer = 1; // the highest field number the last writer knew
+//	  sint64 r0 = 2;     // reserve of token A
+//	  sint64 r1 = 3;     // reserve of token B
+//	  sint64 total = 4;  // shares minted
+//	}
+const (
+	poolKey = "pool"
+	r0, r1  = 2, 3
+	total   = 4
+	known   = 4 // the highest field number this version writes
 )
 
 // Upgrade installs v1 once the pool has approved this realm: at once as the
@@ -50,16 +67,19 @@ func (Impl) Call(tx *upgrade.Tx, c *upgrade.Custody, method, args string) string
 	c.TransferFrom(testtoken.B, caller, c.Address(), a1)
 
 	v := tx.View()
-	r0, total := v.GetInt64(State, "r0"), v.GetInt64(State, "total")
+	p := pool(v)
+	reserve0, supply := p.Sint64(r0), p.Sint64(total)
 	// shares follow token A only and a1 is taken as given. A real
 	// pool would require the current ratio.
 	minted := a0
-	if total > 0 {
-		minted = a0 * total / r0
+	if supply > 0 {
+		minted = a0 * supply / reserve0
 	}
-	tx.Set(State, "r0", r0+a0)
-	tx.Set(State, "r1", v.GetInt64(State, "r1")+a1)
-	tx.Set(State, "total", total+minted)
+	e := edit(p)
+	e.Sint64(r0, reserve0+a0)
+	e.Sint64(r1, p.Sint64(r1)+a1)
+	e.Sint64(total, supply+minted)
+	tx.Set(State, poolKey, e.Encode())
 	key := caller.String()
 	tx.Set(Shares, key, v.GetInt64(Shares, key)+minted)
 	return strconv.FormatInt(minted, 10)
@@ -77,19 +97,20 @@ func (Impl) Render(v upgrade.View, _ string) string {
 }
 
 func (Impl) Reserves(v upgrade.View) (int64, int64) {
-	return v.GetInt64(State, "r0"), v.GetInt64(State, "r1")
+	p := pool(v)
+	return p.Sint64(r0), p.Sint64(r1)
 }
 
 func (Impl) Swap(tx *upgrade.Tx, c *upgrade.Custody, zeroForOne bool, amountIn, minOut int64, to address, pay func(owed int64)) int64 {
 	if amountIn <= 0 {
 		panic("amm: amountIn must be positive")
 	}
-	inTok, outTok, inKey, outKey := testtoken.A, testtoken.B, "r0", "r1"
+	inTok, outTok, inField, outField := testtoken.A, testtoken.B, pb.Number(r0), pb.Number(r1)
 	if !zeroForOne {
-		inTok, outTok, inKey, outKey = outTok, inTok, outKey, inKey
+		inTok, outTok, inField, outField = outTok, inTok, outField, inField
 	}
-	v := tx.View()
-	rIn, rOut := v.GetInt64(State, inKey), v.GetInt64(State, outKey)
+	p := pool(tx.View())
+	rIn, rOut := p.Sint64(inField), p.Sint64(outField)
 	// TODO: use uint256 package.
 	out := amountIn * 997 * rOut / (rIn*1000 + amountIn*997)
 	if out <= 0 || out < minOut {
@@ -103,9 +124,21 @@ func (Impl) Swap(tx *upgrade.Tx, c *upgrade.Custody, zeroForOne bool, amountIn, 
 		panic("amm: callback underpaid")
 	}
 
-	tx.Set(State, inKey, rIn+amountIn)
-	tx.Set(State, outKey, rOut-out)
+	e := edit(p)
+	e.Sint64(inField, rIn+amountIn)
+	e.Sint64(outField, rOut-out)
+	tx.Set(State, poolKey, e.Encode())
 	return out
+}
+
+func pool(v upgrade.View) pb.Message { return pb.Read(v.GetBytes(State, poolKey)) }
+
+// edit starts every write to the pool record, so that field 1 always names
+// this version.
+func edit(p pb.Message) *pb.Editor {
+	e := p.Edit()
+	e.Uint64(1, known)
+	return e
 }
 
 func balance(tok *grc20.Token, c *upgrade.Custody) int64 {

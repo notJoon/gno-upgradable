@@ -5,6 +5,7 @@ loadpkg gno.land/p/nt/bptree/v0
 loadpkg gno.land/p/nt/cford32/v0
 loadpkg gno.land/p/nt/grc20/v0
 loadpkg gno.land/p/nt/seqid/v0
+loadpkg gno.land/p/notjoon/encoding/protobuf/v0 $WORK/src/p/notjoon/encoding/protobuf/v0
 loadpkg gno.land/p/upgrade/v0 $WORK/src/p/upgrade/v0
 loadpkg gno.land/r/upgrade/testtoken $WORK/src/r/upgrade/testtoken
 loadpkg gno.land/r/upgrade/amm $WORK/src/r/upgrade/amm
