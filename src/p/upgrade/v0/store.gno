@@ -141,12 +141,57 @@ func (v View) Get(table, key string) any {
 	return v.s.rows.Get(rowKey(table, key))
 }
 
-// GetInt64 returns the int64 at key, or 0 if there is none.
+// There is a typed getter for each type Set accepts. Each returns the zero
+// value if there is no row, and panics if the row holds another type.
+
+func (v View) GetString(table, key string) string {
+	x := v.Get(table, key)
+	s, ok := x.(string)
+	assertType(x, ok, table, key, "string")
+	return s
+}
+
+func (v View) GetBool(table, key string) bool {
+	x := v.Get(table, key)
+	b, ok := x.(bool)
+	assertType(x, ok, table, key, "bool")
+	return b
+}
+
 func (v View) GetInt64(table, key string) int64 {
-	if n := v.Get(table, key); n != nil {
-		return n.(int64)
+	x := v.Get(table, key)
+	n, ok := x.(int64)
+	assertType(x, ok, table, key, "int64")
+	return n
+}
+
+func (v View) GetUint64(table, key string) uint64 {
+	x := v.Get(table, key)
+	n, ok := x.(uint64)
+	assertType(x, ok, table, key, "uint64")
+	return n
+}
+
+func (v View) GetAddress(table, key string) address {
+	x := v.Get(table, key)
+	a, ok := x.(address)
+	assertType(x, ok, table, key, "address")
+	return a
+}
+
+// GetBytes returns a copy, because the stored bytes are readonly to the
+// caller and appending to them would panic.
+func (v View) GetBytes(table, key string) []byte {
+	x := v.Get(table, key)
+	b, ok := x.([]byte)
+	assertType(x, ok, table, key, "[]byte")
+	return append([]byte(nil), b...)
+}
+
+func assertType(x any, ok bool, table, key, typ string) {
+	if !ok && x != nil {
+		panic("upgrade: row " + table + "/" + key + " is not " + typ)
 	}
-	return 0
 }
 
 func (v View) Has(table, key string) bool {
